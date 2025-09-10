@@ -28,3 +28,4 @@ logs/
 
 # Database dumps
 *.sql.bak
+.vercel
