@@ -1,6 +1,5 @@
 import sys, os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-
 import psycopg2
 import psycopg2.extras
 from dotenv import load_dotenv
@@ -12,7 +11,6 @@ def get_connection():
     return psycopg2.connect(DATABASE_URL)
 
 def execute_query(query, params=None, fetch=False, many=False):
-    query = query.replace("AUTO_INCREMENT", "").replace("auto_increment", "")
     conn = get_connection()
     cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     try:
