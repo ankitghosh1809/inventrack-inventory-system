@@ -7,7 +7,7 @@
  * the Flask backend at API_BASE.
  */
 
-const API_BASE = "http://localhost:5000/api";
+const API_BASE = "/api";
 
 // ─────────────────────────────────────────────
 // GLOBAL STATE
