@@ -232,3 +232,6 @@ Pull requests are welcome. For larger changes please open an issue first to disc
 ## License
 
 MIT License — see [LICENSE](LICENSE) for details.
+
+## 🌐 Live Demo
+[https://inventrack-inventory-system.vercel.app](https://inventrack-inventory-system.vercel.app)
