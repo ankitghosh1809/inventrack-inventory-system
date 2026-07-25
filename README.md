@@ -211,12 +211,6 @@ suppliers  ──┘        │
 
 ---
 
-## Screenshots
-
-> _Add screenshots of your running dashboard here._
-
----
-
 ## Contributing
 
 Pull requests are welcome. For larger changes please open an issue first to discuss what you'd like to change.
