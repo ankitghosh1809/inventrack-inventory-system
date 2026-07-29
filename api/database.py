@@ -27,8 +27,15 @@ def execute_query(query, params=None, fetch=False, many=False):
             result = [dict(r) for r in cur.fetchall()]
         else:
             conn.commit()
-            row = cur.fetchone()
-            result = list(row.values())[0] if row else cur.rowcount
+            # Unlike MySQL (cursor.lastrowid), a plain INSERT/UPDATE/DELETE
+            # in Postgres has no result set at all -- cur.fetchone() would
+            # raise "no results to fetch". Only fetch when the query actually
+            # produced rows (e.g. it has a RETURNING clause).
+            if cur.description:
+                row = cur.fetchone()
+                result = list(row.values())[0] if row else cur.rowcount
+            else:
+                result = cur.rowcount
         return result
     except Exception as e:
         conn.rollback()
@@ -44,8 +51,11 @@ def execute_transaction(queries_and_params):
     try:
         for query, params in queries_and_params:
             cur.execute(query, params or ())
-            row = cur.fetchone()
-            results.append(list(row.values())[0] if row else cur.rowcount)
+            if cur.description:
+                row = cur.fetchone()
+                results.append(list(row.values())[0] if row else cur.rowcount)
+            else:
+                results.append(cur.rowcount)
         conn.commit()
         return results
     except Exception as e:

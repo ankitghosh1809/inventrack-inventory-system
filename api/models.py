@@ -32,7 +32,7 @@ def get_all_categories():
 
 def create_category(name, description=None):
     return execute_query(
-        "INSERT INTO categories (name, description) VALUES (%s, %s)",
+        "INSERT INTO categories (name, description) VALUES (%s, %s) RETURNING id",
         (name, description),
     )
 
@@ -59,7 +59,7 @@ def get_supplier_by_id(supplier_id):
 def create_supplier(data):
     return execute_query(
         """INSERT INTO suppliers (name, contact_person, email, phone, address, city, country)
-           VALUES (%s, %s, %s, %s, %s, %s, %s)""",
+           VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING id""",
         (
             data["name"],
             data.get("contact_person"),
@@ -107,7 +107,7 @@ def get_all_products(page=1, per_page=10, search=None, category_id=None, low_sto
     params = []
 
     if search:
-        conditions.append("(p.name LIKE %s OR p.sku LIKE %s)")
+        conditions.append("(p.name ILIKE %s OR p.sku ILIKE %s)")
         params += [f"%{search}%", f"%{search}%"]
 
     if category_id:
@@ -156,7 +156,7 @@ def create_product(data):
         """INSERT INTO products
            (name, sku, description, category_id, supplier_id, unit_price,
             selling_price, quantity_in_stock, reorder_level, reorder_quantity, unit)
-           VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
+           VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id""",
         (
             data["name"],
             data["sku"],
@@ -291,7 +291,7 @@ def create_sale(sale_data, items):
         """INSERT INTO sales
            (invoice_number, customer_name, customer_email, total_amount,
             discount, final_amount, payment_method, status, notes)
-           VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)""",
+           VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id""",
         (
             invoice,
             sale_data.get("customer_name"),
@@ -338,7 +338,7 @@ def get_all_sales(page=1, per_page=10, search=None):
     params = []
 
     if search:
-        conditions.append("(s.invoice_number LIKE %s OR s.customer_name LIKE %s)")
+        conditions.append("(s.invoice_number ILIKE %s OR s.customer_name ILIKE %s)")
         params += [f"%{search}%", f"%{search}%"]
 
     where = ("WHERE " + " AND ".join(conditions)) if conditions else ""
@@ -425,7 +425,7 @@ def get_dashboard_summary():
     # Revenue today
     today_revenue = execute_query(
         """SELECT COALESCE(SUM(final_amount), 0) AS revenue
-           FROM sales WHERE DATE(created_at) = CURDATE() AND status = 'completed'""",
+           FROM sales WHERE DATE(created_at) = CURRENT_DATE AND status = 'completed'""",
         fetch=True,
     )[0]["revenue"]
 
@@ -433,8 +433,7 @@ def get_dashboard_summary():
     month_revenue = execute_query(
         """SELECT COALESCE(SUM(final_amount), 0) AS revenue
            FROM sales
-           WHERE MONTH(created_at) = MONTH(NOW())
-             AND YEAR(created_at) = YEAR(NOW())
+           WHERE DATE_TRUNC('month', created_at) = DATE_TRUNC('month', NOW())
              AND status = 'completed'""",
         fetch=True,
     )[0]["revenue"]
@@ -462,7 +461,7 @@ def get_sales_chart_data(days=7):
                   COUNT(*) AS orders,
                   COALESCE(SUM(final_amount), 0) AS revenue
            FROM sales
-           WHERE created_at >= DATE_SUB(NOW(), INTERVAL %s DAY)
+           WHERE created_at >= NOW() - (%s || ' days')::interval
              AND status = 'completed'
            GROUP BY DATE(created_at)
            ORDER BY date""",
@@ -477,7 +476,7 @@ def get_top_selling_products(limit=5):
                   SUM(si.total_price) AS total_revenue
            FROM sale_items si
            JOIN products p ON si.product_id = p.id
-           GROUP BY si.product_id
+           GROUP BY p.id, p.name, p.sku
            ORDER BY total_sold DESC
            LIMIT %s""",
         (limit,),
@@ -494,7 +493,7 @@ def get_category_stock_value():
            FROM products p
            JOIN categories c ON p.category_id = c.id
            WHERE p.is_active = TRUE
-           GROUP BY p.category_id
+           GROUP BY p.category_id, c.name
            ORDER BY stock_value DESC""",
         fetch=True,
     )

@@ -102,7 +102,7 @@ def add_supplier():
         supplier_id = models.create_supplier(data)
         return success({"id": supplier_id}, "Supplier added successfully", 201)
     except Exception as e:
-        if "Duplicate entry" in str(e):
+        if getattr(e, "pgcode", None) == "23505":  # unique_violation
             return error("A supplier with this email already exists")
         return error(str(e))
 
@@ -163,7 +163,7 @@ def add_product():
         product_id = models.create_product(data)
         return success({"id": product_id}, "Product created", 201)
     except Exception as e:
-        if "Duplicate entry" in str(e):
+        if getattr(e, "pgcode", None) == "23505":  # unique_violation
             return error("A product with this SKU already exists")
         return error(str(e))
 

@@ -1,6 +1,6 @@
 # InvenTrack — Inventory Management System
 
-A full-stack inventory management solution built with **Python (Flask)** and **MySQL** on the backend, and a clean **HTML/CSS/JavaScript** dashboard on the frontend.
+A full-stack inventory management solution built with **Python (Flask)** and **PostgreSQL (Neon)** on the backend, deployed on **Vercel**, with a clean **HTML/CSS/JavaScript** dashboard on the frontend.
 
 The system handles everything a small-to-mid-sized business needs: product catalog, supplier management, real-time stock tracking, sales recording, low-stock alerts, and analytics.
 
@@ -22,9 +22,9 @@ The system handles everything a small-to-mid-sized business needs: product catal
 
 | Layer | Technology |
 |---|---|
-| Backend | Python 3.10+, Flask 3.x |
-| Database | MySQL 8.x |
-| ORM / DB layer | mysql-connector-python (raw SQL, no ORM) |
+| Backend | Python 3.10+, Flask 3.x (Vercel serverless function) |
+| Database | PostgreSQL (Neon) |
+| DB layer | psycopg2 (raw SQL, no ORM) |
 | Frontend | Vanilla HTML5, CSS3, JavaScript (ES6+) |
 | Charts | Chart.js 4 |
 | Fonts | IBM Plex Sans, IBM Plex Mono |
@@ -36,13 +36,14 @@ The system handles everything a small-to-mid-sized business needs: product catal
 ```
 inventory-management-system/
 │
-├── backend/
-│   ├── app.py              # Flask app — all API routes
-│   ├── models.py           # All database queries and business logic
-│   ├── database.py         # MySQL connection pool + query helpers
-│   ├── config.py           # Config from environment variables
-│   ├── requirements.txt    # Python dependencies
-│   └── .env.example        # Environment variable template
+├── api/                    # Deployed to Vercel as a serverless function
+│   ├── index.py            # Vercel entry point (imports app)
+│   ├── app.py               # Flask app — all API routes
+│   ├── models.py            # All database queries and business logic
+│   ├── database.py          # Postgres (Neon) connection + query helpers
+│   └── config.py            # Config from environment variables
+│
+├── backend/                # Legacy pre-Vercel copy, not deployed — safe to delete
 │
 ├── frontend/
 │   ├── index.html          # Single-page dashboard UI
@@ -64,44 +65,36 @@ inventory-management-system/
 ### Prerequisites
 
 - Python 3.10 or higher
-- MySQL 8.x running locally or remotely
+- A PostgreSQL database — [Neon](https://neon.tech) is free and is what this project is deployed against
 - A modern web browser
 
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/your-username/inventory-management-system.git
-cd inventory-management-system
+git clone https://github.com/ankitghosh1809/inventrack-inventory-system.git
+cd inventrack-inventory-system
 ```
 
 ### 2. Set up the database
 
-Log into MySQL and run the schema file:
+Run the schema against your Postgres database:
 
 ```bash
-mysql -u root -p < database/schema.sql
+psql "$DATABASE_URL" -f database/schema.sql
 ```
 
-This creates the `inventory_db` database, all tables, and loads some sample data so you can explore the app right away.
+This creates all tables, the `updated_at` triggers, and loads sample data so you can explore the app right away.
 
-### 3. Configure the backend
+### 3. Configure environment variables
 
-```bash
-cd backend
-cp .env.example .env
-```
-
-Open `.env` and fill in your MySQL credentials:
+Create a `.env` file inside `api/`:
 
 ```
-MYSQL_HOST=localhost
-MYSQL_PORT=3306
-MYSQL_USER=root
-MYSQL_PASSWORD=your_password_here
-MYSQL_DB=inventory_db
+DATABASE_URL=postgresql://user:password@host/dbname?sslmode=require
 SECRET_KEY=some-long-random-string
-FLASK_DEBUG=true
 ```
+
+Use the **pooled** connection string from your Neon dashboard (hostname contains `-pooler`) — Vercel's serverless functions open a fresh connection per invocation, and the direct (non-pooled) endpoint runs out of connections much faster under concurrent load.
 
 ### 4. Install Python dependencies
 
@@ -109,22 +102,22 @@ FLASK_DEBUG=true
 pip install -r requirements.txt
 ```
 
-### 5. Run the backend
+### 5. Run the backend locally
 
 ```bash
+cd api
 python app.py
 ```
 
-The API will start at `http://localhost:5000`. You should see output like:
-
-```
- * Running on http://0.0.0.0:5000
- * Debug mode: on
-```
+The API will start at `http://localhost:5000`.
 
 ### 6. Open the frontend
 
 Just open `frontend/index.html` directly in your browser — no build step needed. The dashboard will connect to the Flask API automatically.
+
+### Deploying to Vercel
+
+`vercel.json` already routes `/api/*` to `api/index.py` and serves `frontend/` as static files. In the Vercel project's Settings → Environment Variables, add `DATABASE_URL` (the pooled Neon string), then push to trigger a deploy.
 
 ---
 

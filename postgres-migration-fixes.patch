@@ -1,0 +1,463 @@
+diff --git a/README.md b/README.md
+index 257a197..4a6a2fb 100644
+--- a/README.md
++++ b/README.md
+@@ -1,6 +1,6 @@
+ # InvenTrack — Inventory Management System
+ 
+-A full-stack inventory management solution built with **Python (Flask)** and **MySQL** on the backend, and a clean **HTML/CSS/JavaScript** dashboard on the frontend.
++A full-stack inventory management solution built with **Python (Flask)** and **PostgreSQL (Neon)** on the backend, deployed on **Vercel**, with a clean **HTML/CSS/JavaScript** dashboard on the frontend.
+ 
+ The system handles everything a small-to-mid-sized business needs: product catalog, supplier management, real-time stock tracking, sales recording, low-stock alerts, and analytics.
+ 
+@@ -22,9 +22,9 @@ The system handles everything a small-to-mid-sized business needs: product catal
+ 
+ | Layer | Technology |
+ |---|---|
+-| Backend | Python 3.10+, Flask 3.x |
+-| Database | MySQL 8.x |
+-| ORM / DB layer | mysql-connector-python (raw SQL, no ORM) |
++| Backend | Python 3.10+, Flask 3.x (Vercel serverless function) |
++| Database | PostgreSQL (Neon) |
++| DB layer | psycopg2 (raw SQL, no ORM) |
+ | Frontend | Vanilla HTML5, CSS3, JavaScript (ES6+) |
+ | Charts | Chart.js 4 |
+ | Fonts | IBM Plex Sans, IBM Plex Mono |
+@@ -36,13 +36,14 @@ The system handles everything a small-to-mid-sized business needs: product catal
+ ```
+ inventory-management-system/
+ │
+-├── backend/
+-│   ├── app.py              # Flask app — all API routes
+-│   ├── models.py           # All database queries and business logic
+-│   ├── database.py         # MySQL connection pool + query helpers
+-│   ├── config.py           # Config from environment variables
+-│   ├── requirements.txt    # Python dependencies
+-│   └── .env.example        # Environment variable template
++├── api/                    # Deployed to Vercel as a serverless function
++│   ├── index.py            # Vercel entry point (imports app)
++│   ├── app.py               # Flask app — all API routes
++│   ├── models.py            # All database queries and business logic
++│   ├── database.py          # Postgres (Neon) connection + query helpers
++│   └── config.py            # Config from environment variables
++│
++├── backend/                # Legacy pre-Vercel copy, not deployed — safe to delete
+ │
+ ├── frontend/
+ │   ├── index.html          # Single-page dashboard UI
+@@ -64,68 +65,60 @@ inventory-management-system/
+ ### Prerequisites
+ 
+ - Python 3.10 or higher
+-- MySQL 8.x running locally or remotely
++- A PostgreSQL database — [Neon](https://neon.tech) is free and is what this project is deployed against
+ - A modern web browser
+ 
+ ### 1. Clone the repository
+ 
+ ```bash
+-git clone https://github.com/your-username/inventory-management-system.git
+-cd inventory-management-system
++git clone https://github.com/ankitghosh1809/inventrack-inventory-system.git
++cd inventrack-inventory-system
+ ```
+ 
+ ### 2. Set up the database
+ 
+-Log into MySQL and run the schema file:
++Run the schema against your Postgres database:
+ 
+ ```bash
+-mysql -u root -p < database/schema.sql
++psql "$DATABASE_URL" -f database/schema.sql
+ ```
+ 
+-This creates the `inventory_db` database, all tables, and loads some sample data so you can explore the app right away.
++This creates all tables, the `updated_at` triggers, and loads sample data so you can explore the app right away.
+ 
+-### 3. Configure the backend
++### 3. Configure environment variables
+ 
+-```bash
+-cd backend
+-cp .env.example .env
+-```
+-
+-Open `.env` and fill in your MySQL credentials:
++Create a `.env` file inside `api/`:
+ 
+ ```
+-MYSQL_HOST=localhost
+-MYSQL_PORT=3306
+-MYSQL_USER=root
+-MYSQL_PASSWORD=your_password_here
+-MYSQL_DB=inventory_db
++DATABASE_URL=postgresql://user:password@host/dbname?sslmode=require
+ SECRET_KEY=some-long-random-string
+-FLASK_DEBUG=true
+ ```
+ 
++Use the **pooled** connection string from your Neon dashboard (hostname contains `-pooler`) — Vercel's serverless functions open a fresh connection per invocation, and the direct (non-pooled) endpoint runs out of connections much faster under concurrent load.
++
+ ### 4. Install Python dependencies
+ 
+ ```bash
+ pip install -r requirements.txt
+ ```
+ 
+-### 5. Run the backend
++### 5. Run the backend locally
+ 
+ ```bash
++cd api
+ python app.py
+ ```
+ 
+-The API will start at `http://localhost:5000`. You should see output like:
+-
+-```
+- * Running on http://0.0.0.0:5000
+- * Debug mode: on
+-```
++The API will start at `http://localhost:5000`.
+ 
+ ### 6. Open the frontend
+ 
+ Just open `frontend/index.html` directly in your browser — no build step needed. The dashboard will connect to the Flask API automatically.
+ 
++### Deploying to Vercel
++
++`vercel.json` already routes `/api/*` to `api/index.py` and serves `frontend/` as static files. In the Vercel project's Settings → Environment Variables, add `DATABASE_URL` (the pooled Neon string), then push to trigger a deploy.
++
+ ---
+ 
+ ## API Reference
+diff --git a/api/app.py b/api/app.py
+index c4f2f0e..aaec186 100644
+--- a/api/app.py
++++ b/api/app.py
+@@ -102,7 +102,7 @@ def add_supplier():
+         supplier_id = models.create_supplier(data)
+         return success({"id": supplier_id}, "Supplier added successfully", 201)
+     except Exception as e:
+-        if "Duplicate entry" in str(e):
++        if getattr(e, "pgcode", None) == "23505":  # unique_violation
+             return error("A supplier with this email already exists")
+         return error(str(e))
+ 
+@@ -163,7 +163,7 @@ def add_product():
+         product_id = models.create_product(data)
+         return success({"id": product_id}, "Product created", 201)
+     except Exception as e:
+-        if "Duplicate entry" in str(e):
++        if getattr(e, "pgcode", None) == "23505":  # unique_violation
+             return error("A product with this SKU already exists")
+         return error(str(e))
+ 
+diff --git a/api/database.py b/api/database.py
+index 2ebc55b..0e26f42 100644
+--- a/api/database.py
++++ b/api/database.py
+@@ -27,8 +27,15 @@ def execute_query(query, params=None, fetch=False, many=False):
+             result = [dict(r) for r in cur.fetchall()]
+         else:
+             conn.commit()
+-            row = cur.fetchone()
+-            result = list(row.values())[0] if row else cur.rowcount
++            # Unlike MySQL (cursor.lastrowid), a plain INSERT/UPDATE/DELETE
++            # in Postgres has no result set at all -- cur.fetchone() would
++            # raise "no results to fetch". Only fetch when the query actually
++            # produced rows (e.g. it has a RETURNING clause).
++            if cur.description:
++                row = cur.fetchone()
++                result = list(row.values())[0] if row else cur.rowcount
++            else:
++                result = cur.rowcount
+         return result
+     except Exception as e:
+         conn.rollback()
+@@ -44,8 +51,11 @@ def execute_transaction(queries_and_params):
+     try:
+         for query, params in queries_and_params:
+             cur.execute(query, params or ())
+-            row = cur.fetchone()
+-            results.append(list(row.values())[0] if row else cur.rowcount)
++            if cur.description:
++                row = cur.fetchone()
++                results.append(list(row.values())[0] if row else cur.rowcount)
++            else:
++                results.append(cur.rowcount)
+         conn.commit()
+         return results
+     except Exception as e:
+diff --git a/api/models.py b/api/models.py
+index 6747408..7a31ad3 100644
+--- a/api/models.py
++++ b/api/models.py
+@@ -32,7 +32,7 @@ def get_all_categories():
+ 
+ def create_category(name, description=None):
+     return execute_query(
+-        "INSERT INTO categories (name, description) VALUES (%s, %s)",
++        "INSERT INTO categories (name, description) VALUES (%s, %s) RETURNING id",
+         (name, description),
+     )
+ 
+@@ -59,7 +59,7 @@ def get_supplier_by_id(supplier_id):
+ def create_supplier(data):
+     return execute_query(
+         """INSERT INTO suppliers (name, contact_person, email, phone, address, city, country)
+-           VALUES (%s, %s, %s, %s, %s, %s, %s)""",
++           VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING id""",
+         (
+             data["name"],
+             data.get("contact_person"),
+@@ -107,7 +107,7 @@ def get_all_products(page=1, per_page=10, search=None, category_id=None, low_sto
+     params = []
+ 
+     if search:
+-        conditions.append("(p.name LIKE %s OR p.sku LIKE %s)")
++        conditions.append("(p.name ILIKE %s OR p.sku ILIKE %s)")
+         params += [f"%{search}%", f"%{search}%"]
+ 
+     if category_id:
+@@ -156,7 +156,7 @@ def create_product(data):
+         """INSERT INTO products
+            (name, sku, description, category_id, supplier_id, unit_price,
+             selling_price, quantity_in_stock, reorder_level, reorder_quantity, unit)
+-           VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
++           VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id""",
+         (
+             data["name"],
+             data["sku"],
+@@ -291,7 +291,7 @@ def create_sale(sale_data, items):
+         """INSERT INTO sales
+            (invoice_number, customer_name, customer_email, total_amount,
+             discount, final_amount, payment_method, status, notes)
+-           VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)""",
++           VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id""",
+         (
+             invoice,
+             sale_data.get("customer_name"),
+@@ -338,7 +338,7 @@ def get_all_sales(page=1, per_page=10, search=None):
+     params = []
+ 
+     if search:
+-        conditions.append("(s.invoice_number LIKE %s OR s.customer_name LIKE %s)")
++        conditions.append("(s.invoice_number ILIKE %s OR s.customer_name ILIKE %s)")
+         params += [f"%{search}%", f"%{search}%"]
+ 
+     where = ("WHERE " + " AND ".join(conditions)) if conditions else ""
+@@ -425,7 +425,7 @@ def get_dashboard_summary():
+     # Revenue today
+     today_revenue = execute_query(
+         """SELECT COALESCE(SUM(final_amount), 0) AS revenue
+-           FROM sales WHERE DATE(created_at) = CURDATE() AND status = 'completed'""",
++           FROM sales WHERE DATE(created_at) = CURRENT_DATE AND status = 'completed'""",
+         fetch=True,
+     )[0]["revenue"]
+ 
+@@ -433,8 +433,7 @@ def get_dashboard_summary():
+     month_revenue = execute_query(
+         """SELECT COALESCE(SUM(final_amount), 0) AS revenue
+            FROM sales
+-           WHERE MONTH(created_at) = MONTH(NOW())
+-             AND YEAR(created_at) = YEAR(NOW())
++           WHERE DATE_TRUNC('month', created_at) = DATE_TRUNC('month', NOW())
+              AND status = 'completed'""",
+         fetch=True,
+     )[0]["revenue"]
+@@ -462,7 +461,7 @@ def get_sales_chart_data(days=7):
+                   COUNT(*) AS orders,
+                   COALESCE(SUM(final_amount), 0) AS revenue
+            FROM sales
+-           WHERE created_at >= DATE_SUB(NOW(), INTERVAL %s DAY)
++           WHERE created_at >= NOW() - (%s || ' days')::interval
+              AND status = 'completed'
+            GROUP BY DATE(created_at)
+            ORDER BY date""",
+@@ -477,7 +476,7 @@ def get_top_selling_products(limit=5):
+                   SUM(si.total_price) AS total_revenue
+            FROM sale_items si
+            JOIN products p ON si.product_id = p.id
+-           GROUP BY si.product_id
++           GROUP BY p.id, p.name, p.sku
+            ORDER BY total_sold DESC
+            LIMIT %s""",
+         (limit,),
+@@ -494,7 +493,7 @@ def get_category_stock_value():
+            FROM products p
+            JOIN categories c ON p.category_id = c.id
+            WHERE p.is_active = TRUE
+-           GROUP BY p.category_id
++           GROUP BY p.category_id, c.name
+            ORDER BY stock_value DESC""",
+         fetch=True,
+     )
+diff --git a/database/schema.sql b/database/schema.sql
+index 71d044f..f2e584c 100644
+--- a/database/schema.sql
++++ b/database/schema.sql
+@@ -1,13 +1,14 @@
+ -- ============================================================
+ -- Inventory Management System - Database Schema
+--- Engine : MySQL 8.0+
++-- Engine : PostgreSQL 14+ (Neon)
+ -- ============================================================
+-
+-CREATE DATABASE IF NOT EXISTS inventory_db;
+-USE inventory_db;
++-- Run this against your Neon database, e.g.:
++--   psql "$DATABASE_URL" -f database/schema.sql
++-- Neon already provisions a database for you via the connection
++-- string, so there's no CREATE DATABASE / USE step here.
+ 
+ CREATE TABLE IF NOT EXISTS suppliers (
+-    id              INT           NOT NULL AUTO_INCREMENT PRIMARY KEY,
++    id              SERIAL        PRIMARY KEY,
+     name            VARCHAR(150)  NOT NULL,
+     contact_person  VARCHAR(100),
+     email           VARCHAR(120)  NOT NULL UNIQUE,
+@@ -15,20 +16,20 @@ CREATE TABLE IF NOT EXISTS suppliers (
+     address         TEXT,
+     city            VARCHAR(80),
+     country         VARCHAR(80)   DEFAULT 'India',
+-    is_active       TINYINT(1)    DEFAULT 1,
++    is_active       BOOLEAN       DEFAULT TRUE,
+     created_at      TIMESTAMP     DEFAULT CURRENT_TIMESTAMP,
+-    updated_at      TIMESTAMP     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
++    updated_at      TIMESTAMP     DEFAULT CURRENT_TIMESTAMP
+ );
+ 
+ CREATE TABLE IF NOT EXISTS categories (
+-    id          INT           NOT NULL AUTO_INCREMENT PRIMARY KEY,
++    id          SERIAL        PRIMARY KEY,
+     name        VARCHAR(100)  NOT NULL UNIQUE,
+     description TEXT,
+     created_at  TIMESTAMP     DEFAULT CURRENT_TIMESTAMP
+ );
+ 
+ CREATE TABLE IF NOT EXISTS products (
+-    id                INT            NOT NULL AUTO_INCREMENT PRIMARY KEY,
++    id                SERIAL         PRIMARY KEY,
+     name              VARCHAR(200)   NOT NULL,
+     sku               VARCHAR(80)    NOT NULL UNIQUE,
+     description       TEXT,
+@@ -40,29 +41,31 @@ CREATE TABLE IF NOT EXISTS products (
+     reorder_level     INT            NOT NULL DEFAULT 10,
+     reorder_quantity  INT            NOT NULL DEFAULT 50,
+     unit              VARCHAR(30)    DEFAULT 'pcs',
+-    is_active         TINYINT(1)     DEFAULT 1,
++    is_active         BOOLEAN        DEFAULT TRUE,
+     created_at        TIMESTAMP      DEFAULT CURRENT_TIMESTAMP,
+-    updated_at        TIMESTAMP      DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
++    updated_at        TIMESTAMP      DEFAULT CURRENT_TIMESTAMP,
+     FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL,
+     FOREIGN KEY (supplier_id) REFERENCES suppliers(id)  ON DELETE SET NULL
+ );
+ 
+ CREATE TABLE IF NOT EXISTS sales (
+-    id              INT            NOT NULL AUTO_INCREMENT PRIMARY KEY,
++    id              SERIAL         PRIMARY KEY,
+     invoice_number  VARCHAR(50)    NOT NULL UNIQUE,
+     customer_name   VARCHAR(150),
+     customer_email  VARCHAR(120),
+     total_amount    DECIMAL(12,2)  NOT NULL DEFAULT 0.00,
+     discount        DECIMAL(10,2)  DEFAULT 0.00,
+     final_amount    DECIMAL(12,2)  NOT NULL DEFAULT 0.00,
+-    payment_method  ENUM('cash', 'card', 'upi', 'bank_transfer') DEFAULT 'cash',
+-    status          ENUM('pending', 'completed', 'cancelled', 'refunded') DEFAULT 'completed',
++    payment_method  VARCHAR(20)    DEFAULT 'cash'
++                    CHECK (payment_method IN ('cash', 'card', 'upi', 'bank_transfer')),
++    status          VARCHAR(20)    DEFAULT 'completed'
++                    CHECK (status IN ('pending', 'completed', 'cancelled', 'refunded')),
+     notes           TEXT,
+     created_at      TIMESTAMP      DEFAULT CURRENT_TIMESTAMP
+ );
+ 
+ CREATE TABLE IF NOT EXISTS sale_items (
+-    id          INT            NOT NULL AUTO_INCREMENT PRIMARY KEY,
++    id          SERIAL         PRIMARY KEY,
+     sale_id     INT            NOT NULL,
+     product_id  INT            NOT NULL,
+     quantity    INT            NOT NULL,
+@@ -73,11 +76,12 @@ CREATE TABLE IF NOT EXISTS sale_items (
+ );
+ 
+ CREATE TABLE IF NOT EXISTS stock_movements (
+-    id              INT       NOT NULL AUTO_INCREMENT PRIMARY KEY,
+-    product_id      INT       NOT NULL,
+-    movement_type   ENUM('purchase', 'sale', 'adjustment', 'return', 'damage') NOT NULL,
+-    quantity_change INT       NOT NULL,
+-    quantity_after  INT       NOT NULL,
++    id              SERIAL      PRIMARY KEY,
++    product_id      INT         NOT NULL,
++    movement_type   VARCHAR(20) NOT NULL
++                    CHECK (movement_type IN ('purchase', 'sale', 'adjustment', 'return', 'damage')),
++    quantity_change INT         NOT NULL,
++    quantity_after  INT         NOT NULL,
+     reference_id    INT,
+     notes           TEXT,
+     created_by      VARCHAR(80) DEFAULT 'system',
+@@ -86,27 +90,50 @@ CREATE TABLE IF NOT EXISTS stock_movements (
+ );
+ 
+ CREATE TABLE IF NOT EXISTS restock_alerts (
+-    id            INT         NOT NULL AUTO_INCREMENT PRIMARY KEY,
++    id            SERIAL      PRIMARY KEY,
+     product_id    INT         NOT NULL,
+     current_stock INT         NOT NULL,
+     reorder_level INT         NOT NULL,
+-    is_resolved   TINYINT(1)  DEFAULT 0,
++    is_resolved   BOOLEAN     DEFAULT FALSE,
+     resolved_at   TIMESTAMP   NULL DEFAULT NULL,
+     created_at    TIMESTAMP   DEFAULT CURRENT_TIMESTAMP,
+     FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+ );
+ 
++-- Postgres has no "ON UPDATE CURRENT_TIMESTAMP" column option (that's
++-- MySQL-only), so updated_at is refreshed with a trigger instead.
++CREATE OR REPLACE FUNCTION set_updated_at()
++RETURNS TRIGGER AS $$
++BEGIN
++    NEW.updated_at = CURRENT_TIMESTAMP;
++    RETURN NEW;
++END;
++$$ LANGUAGE plpgsql;
++
++DROP TRIGGER IF EXISTS trg_suppliers_updated_at ON suppliers;
++CREATE TRIGGER trg_suppliers_updated_at
++    BEFORE UPDATE ON suppliers
++    FOR EACH ROW EXECUTE FUNCTION set_updated_at();
++
++DROP TRIGGER IF EXISTS trg_products_updated_at ON products;
++CREATE TRIGGER trg_products_updated_at
++    BEFORE UPDATE ON products
++    FOR EACH ROW EXECUTE FUNCTION set_updated_at();
++
++-- Seed data (ON CONFLICT DO NOTHING makes this safe to re-run)
+ INSERT INTO categories (name, description) VALUES
+ ('Electronics',  'Electronic devices and accessories'),
+ ('Stationery',   'Office and school stationery items'),
+ ('Furniture',    'Office and home furniture'),
+ ('Consumables',  'Day-to-day consumable items'),
+-('Accessories',  'Various accessories');
++('Accessories',  'Various accessories')
++ON CONFLICT (name) DO NOTHING;
+ 
+ INSERT INTO suppliers (name, contact_person, email, phone, address, city, country) VALUES
+ ('TechSupply Co.', 'Rahul Sharma', 'rahul@techsupply.in',  '+91-9876543210', '12 MG Road',    'Bengaluru', 'India'),
+ ('OfficeWorld',    'Priya Mehta',  'priya@officeworld.in', '+91-9123456789', '45 Park Street', 'Kolkata',   'India'),
+-('FurniturePlus',  'Amit Singh',   'amit@furnitureplus.in','+91-9988776655', '78 Link Road',   'Mumbai',    'India');
++('FurniturePlus',  'Amit Singh',   'amit@furnitureplus.in','+91-9988776655', '78 Link Road',   'Mumbai',    'India')
++ON CONFLICT (email) DO NOTHING;
+ 
+ INSERT INTO products (name, sku, description, category_id, supplier_id, unit_price, selling_price, quantity_in_stock, reorder_level, reorder_quantity, unit) VALUES
+ ('Wireless Mouse',      'ELEC-001', 'Ergonomic wireless optical mouse',           1, 1,   350.00,   599.00, 45, 10,  50, 'pcs'),
+@@ -118,4 +145,5 @@ INSERT INTO products (name, sku, description, category_id, supplier_id, unit_pri
+ ('Printer Cartridge',   'CONS-001', 'HP compatible black ink cartridge',          4, 1,   450.00,   750.00,  7, 10,  30, 'pcs'),
+ ('Hand Sanitizer',      'CONS-002', '500ml hand sanitizer bottle',                4, 2,    90.00,   150.00, 55, 20, 100, 'bottle'),
+ ('USB-C Cable',         'ACC-001',  '1.5m braided USB-C charging cable',          5, 1,   120.00,   249.00, 80, 15,  60, 'pcs'),
+-('Laptop Stand',        'ACC-002',  'Aluminium adjustable laptop stand',          5, 1,   800.00,  1499.00, 22,  8,  25, 'pcs');
++('Laptop Stand',        'ACC-002',  'Aluminium adjustable laptop stand',          5, 1,   800.00,  1499.00, 22,  8,  25, 'pcs')
++ON CONFLICT (sku) DO NOTHING;
