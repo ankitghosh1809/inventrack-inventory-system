@@ -82,9 +82,14 @@ input, select, textarea { font-family: inherit; }
 
 /* ── Sidebar ── */
 .sidebar-brand {
+  display: block;
   padding: 20px 20px 18px;
   border-bottom: 1px solid rgba(255,255,255,.08);
+  text-decoration: none;
+  cursor: pointer;
 }
+.sidebar-brand:hover { text-decoration: none; }
+.sidebar-brand:hover .brand-title { color: var(--accent); }
 .sidebar-brand .brand-name {
   font-size: .72rem;
   font-weight: 500;
@@ -176,6 +181,31 @@ input, select, textarea { font-family: inherit; }
   z-index: 50;
 }
 .header-title { font-size: 1.05rem; font-weight: 600; flex: 1; }
+
+/* Mobile hamburger — hidden on desktop, shown via media query below */
+#menu-toggle {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+}
+#menu-toggle:hover { background: var(--bg); }
+
+/* Backdrop behind the sidebar when it opens as a mobile drawer */
+#sidebar-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(26,23,20,.5);
+  z-index: 99;
+}
+#sidebar-overlay.show { display: block; }
 .header-search {
   display: flex;
   align-items: center;
@@ -608,6 +638,74 @@ canvas { max-width: 100%; }
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border-dark); border-radius: 99px; }
+
+/* ============================================================
+   Responsive — Tablet & Mobile
+   Sidebar collapses into an off-canvas drawer opened by the
+   hamburger button; content reflows to single columns.
+   ============================================================ */
+
+/* ── Tablet & below: sidebar becomes a drawer ── */
+@media (max-width: 1024px) {
+  #sidebar {
+    transform: translateX(-100%);
+    transition: transform var(--transition);
+    box-shadow: var(--shadow-lg);
+  }
+  #sidebar.open { transform: translateX(0); }
+
+  #main-content { margin-left: 0; }
+
+  #menu-toggle { display: flex; }
+
+  .header-search { width: 180px; }
+}
+
+/* ── Phone ── */
+@media (max-width: 640px) {
+  html { font-size: 14.5px; }
+
+  #top-header { padding: 0 14px; gap: 10px; }
+  .header-title { font-size: .95rem; }
+  .header-search { width: auto; flex: 1; max-width: 160px; }
+  .header-search input { min-width: 0; }
+
+  .page-content { padding: 16px; }
+
+  .stat-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
+  .stat-card { padding: 14px 16px; gap: 10px; }
+  .stat-icon { width: 34px; height: 34px; }
+  .stat-value { font-size: 1.3rem; }
+
+  .page-header { flex-wrap: wrap; }
+  .page-header .btn { width: 100%; justify-content: center; }
+
+  .card-header { padding: 14px 16px; flex-wrap: wrap; gap: 8px; }
+  .card-body { padding: 14px; }
+
+  .form-grid,
+  .form-grid.cols-3 { grid-template-columns: 1fr; }
+
+  .filter-bar { flex-direction: column; align-items: stretch; }
+  .filter-bar input,
+  .filter-bar select { max-width: none; }
+
+  .modal { max-width: none; width: 100%; margin: 0; border-radius: var(--radius-lg) var(--radius-lg) 0 0; }
+  .modal-overlay { padding: 0; align-items: flex-end; }
+  .modal-body { padding: 16px; }
+  .form-actions { flex-direction: column-reverse; }
+  .form-actions .btn { width: 100%; justify-content: center; }
+
+  .pagination { flex-wrap: wrap; }
+
+  #toast-container { left: 12px; right: 12px; bottom: 12px; }
+  .toast { min-width: 0; width: 100%; }
+}
+
+/* Very small stat cards: stack icon above label instead of one column */
+@media (max-width: 380px) {
+  .stat-grid { grid-template-columns: 1fr; }
+}
 
 /* ── Utility ── */
 .flex { display: flex; }

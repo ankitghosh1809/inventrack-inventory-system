@@ -46,11 +46,14 @@ inventory-management-system/
 ├── backend/                # Legacy pre-Vercel copy, not deployed — safe to delete
 │
 ├── frontend/
-│   ├── index.html          # Single-page dashboard UI
+│   ├── index.html          # Marketing landing page (served at /)
+│   ├── dashboard.html      # Single-page dashboard UI (the actual app)
 │   ├── css/
-│   │   └── style.css       # All styles
+│   │   ├── style.css       # Dashboard styles
+│   │   └── landing.css     # Landing page styles (self-contained)
 │   └── js/
-│       └── main.js         # All frontend logic and API calls
+│       ├── main.js         # Dashboard logic and API calls
+│       └── landing.js      # Landing page nav toggle + scroll reveal
 │
 ├── database/
 │   └── schema.sql          # Full DB schema + seed data
@@ -113,7 +116,7 @@ The API will start at `http://localhost:5000`.
 
 ### 6. Open the frontend
 
-Just open `frontend/index.html` directly in your browser — no build step needed. The dashboard will connect to the Flask API automatically.
+Open `frontend/index.html` for the landing page, or go straight to `frontend/dashboard.html` for the app — no build step needed. The dashboard will connect to the Flask API automatically. Both pages are responsive; the dashboard's sidebar collapses into a hamburger-triggered drawer below 1024px.
 
 ### Deploying to Vercel
 

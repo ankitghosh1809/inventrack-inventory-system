@@ -859,8 +859,35 @@ function escHtml(str) {
 document.addEventListener("DOMContentLoaded", () => {
   // Nav click handlers
   document.querySelectorAll(".nav-item[data-page]").forEach(item => {
-    item.addEventListener("click", () => navigate(item.dataset.page));
+    item.addEventListener("click", () => {
+      navigate(item.dataset.page);
+      closeSidebar(); // no-op on desktop widths, closes the drawer on mobile
+    });
   });
+
+  // Mobile sidebar drawer
+  const sidebar = document.getElementById("sidebar");
+  const overlay = document.getElementById("sidebar-overlay");
+  const menuToggle = document.getElementById("menu-toggle");
+
+  menuToggle?.addEventListener("click", () => {
+    sidebar.classList.contains("open") ? closeSidebar() : openSidebar();
+  });
+  overlay?.addEventListener("click", closeSidebar);
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") closeSidebar();
+  });
+
+  function openSidebar() {
+    sidebar.classList.add("open");
+    overlay.classList.add("show");
+    menuToggle?.setAttribute("aria-expanded", "true");
+  }
+  function closeSidebar() {
+    sidebar.classList.remove("open");
+    overlay?.classList.remove("show");
+    menuToggle?.setAttribute("aria-expanded", "false");
+  }
 
   // Product search
   document.getElementById("product-search")?.addEventListener("input", (e) => {

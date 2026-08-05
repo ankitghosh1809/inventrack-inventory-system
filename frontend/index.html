@@ -3,590 +3,284 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>InvenTrack — Inventory Management</title>
-  <link rel="stylesheet" href="css/style.css" />
-  <!-- Chart.js for analytics charts -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js" defer></script>
-  <script src="js/main.js" defer></script>
+  <title>InvenTrack — Inventory & Stock Management</title>
+  <meta name="description" content="Track stock, suppliers and sales in one dashboard. Automatic low-stock alerts, a full movement audit trail, and analytics — built for small and mid-sized businesses." />
+  <link rel="icon" href="data:," />
+  <link rel="stylesheet" href="css/landing.css" />
+  <script src="js/landing.js" defer></script>
 </head>
 <body>
 
-  <!-- ═══════════════ SIDEBAR ═══════════════ -->
-  <aside id="sidebar">
-    <div class="sidebar-brand">
-      <span class="brand-name">Management</span>
-      <span class="brand-title">InvenTrack<span class="brand-dot"></span></span>
+  <!-- ═══════════════ NAV ═══════════════ -->
+  <header class="lp-nav" id="lp-nav">
+    <div class="wrap">
+      <a href="#top" class="lp-brand">
+        <span class="brand-name">Management</span>
+        <span class="brand-title">InvenTrack<span class="brand-dot"></span></span>
+      </a>
+
+      <nav class="lp-links">
+        <a href="#features">Features</a>
+        <a href="#workflow">Workflow</a>
+        <a href="#stack">Stack</a>
+      </nav>
+
+      <div class="lp-nav-actions">
+        <a class="btn btn-ghost" href="https://github.com/ankitghosh1809/inventrack-inventory-system" target="_blank" rel="noopener">GitHub</a>
+        <a class="btn btn-primary" href="dashboard.html">Launch Dashboard</a>
+      </div>
+
+      <button class="lp-menu-toggle" id="lp-menu-toggle" aria-label="Open menu" aria-expanded="false">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
     </div>
 
-    <nav class="sidebar-nav">
-      <div class="nav-section-label">Overview</div>
-      <div class="nav-item active" data-page="dashboard">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
-        Dashboard
-      </div>
-
-      <div class="nav-section-label">Inventory</div>
-      <div class="nav-item" data-page="products">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
-        Products
-      </div>
-      <div class="nav-item" data-page="suppliers">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-        Suppliers
-      </div>
-      <div class="nav-item" data-page="movements">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
-        Stock Movements
-      </div>
-
-      <div class="nav-section-label">Transactions</div>
-      <div class="nav-item" data-page="sales">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-        Sales
-      </div>
-      <div class="nav-item" data-page="alerts">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-        Restock Alerts
-        <span class="nav-badge" id="alert-badge" style="display:none">0</span>
-      </div>
-    </nav>
-
-    <div class="sidebar-footer">
-      © 2024 InvenTrack
+    <div class="lp-mobile-panel">
+      <a href="#features">Features</a>
+      <a href="#workflow">Workflow</a>
+      <a href="#stack">Stack</a>
+      <a href="https://github.com/ankitghosh1809/inventrack-inventory-system" target="_blank" rel="noopener">View on GitHub</a>
+      <a class="btn btn-primary btn-block" href="dashboard.html">Launch Dashboard</a>
     </div>
-  </aside>
+  </header>
 
-  <!-- ═══════════════ MAIN AREA ═══════════════ -->
-  <div id="main-content">
+  <main id="top">
 
-    <!-- Top Header -->
-    <header id="top-header">
-      <h1 class="header-title" id="header-title">Dashboard</h1>
-      <div class="header-search">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-        <input type="text" placeholder="Quick search…" id="global-search" />
+    <!-- ═══════════════ HERO ═══════════════ -->
+    <section class="lp-hero">
+      <div class="wrap">
+        <div class="lp-hero-copy">
+          <span class="eyebrow">Inventory, suppliers &amp; sales — one dashboard</span>
+          <h1>Know what's on the shelf<br>before you run <em>out</em>.</h1>
+          <p class="lead">
+            InvenTrack keeps your product catalog, suppliers, and every stock
+            movement in sync — and fires a restock alert the moment something
+            drops below its reorder point.
+          </p>
+          <div class="lp-hero-actions">
+            <a class="btn btn-primary" href="dashboard.html">Launch Dashboard →</a>
+            <a class="btn btn-ghost" href="#features">See what it does</a>
+          </div>
+          <div class="lp-hero-note">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>
+            No signup — the demo dashboard loads with sample data already inside.
+          </div>
+        </div>
+
+        <div class="lp-preview-wrap">
+          <div class="lp-floating-badge lp-badge-alerts">
+            <span class="dot"></span> 3 restock alerts
+          </div>
+
+          <div class="lp-preview-card">
+            <div class="lp-preview-head">
+              <span class="label">Stock overview</span>
+              <div class="dots"><span></span><span></span><span></span></div>
+            </div>
+
+            <div class="lp-shelf-row" style="--fill:82%">
+              <div>
+                <span class="lp-shelf-name">Wireless Mouse M1</span>
+                <span class="lp-shelf-sku">SKU-1042</span>
+              </div>
+              <div class="lp-bar"><div class="lp-bar-fill"></div></div>
+              <span class="lp-shelf-num">164</span>
+            </div>
+            <div class="lp-shelf-row" style="--fill:34%">
+              <div>
+                <span class="lp-shelf-name">A4 Copier Paper (Ream)</span>
+                <span class="lp-shelf-sku">SKU-2210</span>
+              </div>
+              <div class="lp-bar"><div class="lp-bar-fill low"></div></div>
+              <span class="lp-shelf-num">41</span>
+            </div>
+            <div class="lp-shelf-row" style="--fill:9%">
+              <div>
+                <span class="lp-shelf-name">USB-C Charging Cable</span>
+                <span class="lp-shelf-sku">SKU-0587</span>
+              </div>
+              <div class="lp-bar"><div class="lp-bar-fill empty"></div></div>
+              <span class="lp-shelf-num">6</span>
+            </div>
+            <div class="lp-shelf-row" style="--fill:70%">
+              <div>
+                <span class="lp-shelf-name">Steel Water Bottle 1L</span>
+                <span class="lp-shelf-sku">SKU-3391</span>
+              </div>
+              <div class="lp-bar"><div class="lp-bar-fill"></div></div>
+              <span class="lp-shelf-num">98</span>
+            </div>
+          </div>
+
+          <div class="lp-floating-badge lp-badge-revenue">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+            Today: ₹18,450
+          </div>
+        </div>
       </div>
-    </header>
+    </section>
 
-    <!-- ─── DASHBOARD PAGE ─── -->
-    <section id="page-dashboard" class="page-section active">
-      <div class="page-content">
+    <!-- ═══════════════ MODULE STRIP ═══════════════ -->
+    <section class="lp-strip">
+      <div class="wrap">
+        <div class="lp-pill">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+          Dashboard
+        </div>
+        <div class="lp-pill">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+          Products
+        </div>
+        <div class="lp-pill">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          Suppliers
+        </div>
+        <div class="lp-pill">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+          Stock Movements
+        </div>
+        <div class="lp-pill">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+          Sales
+        </div>
+        <div class="lp-pill">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+          Restock Alerts
+        </div>
+      </div>
+    </section>
 
-        <!-- Stat Cards -->
-        <div class="stat-grid">
-          <div class="stat-card">
-            <div class="stat-icon orange">
+    <!-- ═══════════════ FEATURES ═══════════════ -->
+    <section class="lp-section section-alt" id="features">
+      <div class="wrap">
+        <div class="lp-section-head">
+          <span class="eyebrow">What's inside</span>
+          <h2>Everything a small warehouse actually needs</h2>
+          <p>No modules to configure and nothing to grow into later — six focused screens that cover the day-to-day of running stock.</p>
+        </div>
+
+        <div class="lp-feature-grid">
+          <div class="lp-feature-card">
+            <div class="lp-feature-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+            </div>
+            <h3>Live dashboard</h3>
+            <p>Revenue, low-stock counts, and top sellers at a glance, with a 7-day sales chart and stock value by category.</p>
+          </div>
+
+          <div class="lp-feature-card">
+            <div class="lp-feature-icon">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
             </div>
-            <div class="stat-info">
-              <div class="stat-label">Total Products</div>
-              <div class="stat-value" id="stat-products">—</div>
-            </div>
+            <h3>Product catalog</h3>
+            <p>SKU, category, pricing, and unit tracking per product, with a reorder level and suggested reorder quantity built in.</p>
           </div>
 
-          <div class="stat-card">
-            <div class="stat-icon green">
+          <div class="lp-feature-card">
+            <div class="lp-feature-icon">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
             </div>
-            <div class="stat-info">
-              <div class="stat-label">Suppliers</div>
-              <div class="stat-value" id="stat-suppliers">—</div>
-            </div>
+            <h3>Supplier directory</h3>
+            <p>Contact details and addresses linked directly to the products they supply, so a reorder alert already knows who to call.</p>
           </div>
 
-          <div class="stat-card">
-            <div class="stat-icon yellow">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          <div class="lp-feature-card">
+            <div class="lp-feature-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
             </div>
-            <div class="stat-info">
-              <div class="stat-label">Low Stock Items</div>
-              <div class="stat-value" id="stat-low-stock">—</div>
-              <div class="stat-sub">Needs reordering</div>
-            </div>
+            <h3>Movement audit trail</h3>
+            <p>Every sale, purchase, adjustment, and write-off is logged as a movement record — a full history of who changed what.</p>
           </div>
 
-          <div class="stat-card">
-            <div class="stat-icon red">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-            </div>
-            <div class="stat-info">
-              <div class="stat-label">Active Alerts</div>
-              <div class="stat-value" id="stat-alerts">—</div>
-            </div>
-          </div>
-
-          <div class="stat-card">
-            <div class="stat-icon blue">
+          <div class="lp-feature-card">
+            <div class="lp-feature-icon">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
             </div>
-            <div class="stat-info">
-              <div class="stat-label">Today's Revenue</div>
-              <div class="stat-value" id="stat-today-rev">—</div>
-            </div>
+            <h3>Sales recording</h3>
+            <p>Multi-item invoices with customer details, payment method, and discounts — stock decrements automatically on save.</p>
           </div>
 
-          <div class="stat-card">
-            <div class="stat-icon green">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+          <div class="lp-feature-card">
+            <div class="lp-feature-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
             </div>
-            <div class="stat-info">
-              <div class="stat-label">Monthly Revenue</div>
-              <div class="stat-value" id="stat-month-rev">—</div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Charts row -->
-        <div class="dashboard-grid">
-          <div class="card">
-            <div class="card-header">
-              <h3>Sales — Last 7 Days</h3>
-            </div>
-            <div class="card-body">
-              <div class="chart-container" style="height:220px">
-                <canvas id="sales-chart"></canvas>
-              </div>
-            </div>
-          </div>
-
-          <div class="card">
-            <div class="card-header">
-              <h3>Stock Value by Category</h3>
-            </div>
-            <div class="card-body">
-              <div class="chart-container" style="height:220px">
-                <canvas id="category-chart"></canvas>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Top products table -->
-        <div class="card mt-4">
-          <div class="card-header">
-            <h3>Top Selling Products</h3>
-          </div>
-          <div class="card-body no-pad">
-            <div class="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Product</th>
-                    <th class="text-right">Units Sold</th>
-                    <th class="text-right">Revenue</th>
-                  </tr>
-                </thead>
-                <tbody id="top-products-body">
-                  <tr><td colspan="3" class="text-muted" style="padding:20px;text-align:center">Loading…</td></tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-
-      </div>
-    </section>
-
-    <!-- ─── PRODUCTS PAGE ─── -->
-    <section id="page-products" class="page-section">
-      <div class="page-content">
-        <div class="page-header">
-          <div>
-            <h2>Products</h2>
-            <p>Manage your product catalog and stock levels</p>
-          </div>
-          <button class="btn btn-primary" onclick="openAddProduct()">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-            Add Product
-          </button>
-        </div>
-
-        <div class="filter-bar">
-          <input type="text" id="product-search" placeholder="Search by name or SKU…" />
-        </div>
-
-        <div class="card">
-          <div class="card-body no-pad">
-            <div class="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>SKU</th>
-                    <th>Product</th>
-                    <th>Supplier</th>
-                    <th class="text-right">Price</th>
-                    <th>Stock Level</th>
-                    <th class="text-right">Reorder At</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody id="products-tbody">
-                  <tr><td colspan="7" style="padding:32px;text-align:center;color:var(--text-muted)">Loading products…</td></tr>
-                </tbody>
-              </table>
-            </div>
-            <div class="pagination" id="products-pagination"></div>
+            <h3>Restock alerts</h3>
+            <p>Fires automatically the moment stock drops to the reorder threshold, complete with a suggested reorder quantity.</p>
           </div>
         </div>
       </div>
     </section>
 
-    <!-- ─── SUPPLIERS PAGE ─── -->
-    <section id="page-suppliers" class="page-section">
-      <div class="page-content">
-        <div class="page-header">
-          <div>
-            <h2>Suppliers</h2>
-            <p>Manage your vendor and supplier network</p>
-          </div>
-          <button class="btn btn-primary" onclick="openAddSupplier()">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-            Add Supplier
-          </button>
+    <!-- ═══════════════ WORKFLOW (dark) ═══════════════ -->
+    <section class="lp-section section-on-dark" id="workflow">
+      <div class="wrap">
+        <div class="lp-section-head">
+          <span class="eyebrow">How it fits together</span>
+          <h2>Three steps, then it runs itself</h2>
+          <p>Set the catalog up once — after that, alerts do the watching.</p>
         </div>
 
-        <div class="card">
-          <div class="card-body no-pad">
-            <div class="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Name</th>
-                    <th>Contact Person</th>
-                    <th>Email</th>
-                    <th>Phone</th>
-                    <th>Location</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody id="suppliers-tbody">
-                  <tr><td colspan="6" style="padding:32px;text-align:center;color:var(--text-muted)">Loading suppliers…</td></tr>
-                </tbody>
-              </table>
-            </div>
+        <div class="lp-steps">
+          <div class="lp-step">
+            <h3>Add products &amp; suppliers</h3>
+            <p>Set a reorder level per product and link it to the supplier who restocks it.</p>
+          </div>
+          <div class="lp-step">
+            <h3>Log sales &amp; movements</h3>
+            <p>Every sale, purchase, or manual adjustment updates stock and writes to the audit trail.</p>
+          </div>
+          <div class="lp-step">
+            <h3>Get restock alerts</h3>
+            <p>When stock crosses the threshold, an alert appears with the supplier and quantity already filled in.</p>
           </div>
         </div>
       </div>
     </section>
 
-    <!-- ─── STOCK MOVEMENTS PAGE ─── -->
-    <section id="page-movements" class="page-section">
-      <div class="page-content">
-        <div class="page-header">
-          <div>
-            <h2>Stock Movements</h2>
-            <p>Complete audit trail for all inventory changes</p>
-          </div>
-          <button class="btn btn-secondary" onclick="loadMovements()">Refresh</button>
+    <!-- ═══════════════ STACK ═══════════════ -->
+    <section class="lp-section tight" id="stack">
+      <div class="wrap">
+        <div class="lp-section-head">
+          <span class="eyebrow">Under the hood</span>
+          <h2>Built plainly, on purpose</h2>
+          <p>Raw SQL over an ORM, a single static frontend, no build step.</p>
         </div>
 
-        <div class="card">
-          <div class="card-body no-pad">
-            <div class="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Date & Time</th>
-                    <th>Product</th>
-                    <th>Type</th>
-                    <th class="text-right">Qty Change</th>
-                    <th>Stock After</th>
-                  </tr>
-                </thead>
-                <tbody id="movements-tbody">
-                  <tr><td colspan="5" style="padding:32px;text-align:center;color:var(--text-muted)">Loading…</td></tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
+        <div class="lp-stack-grid">
+          <div class="lp-stack-chip"><span><span class="role">Backend</span><span class="name">Python · Flask</span></span></div>
+          <div class="lp-stack-chip"><span><span class="role">Database</span><span class="name">PostgreSQL (Neon)</span></span></div>
+          <div class="lp-stack-chip"><span><span class="role">Frontend</span><span class="name">HTML · CSS · Vanilla JS</span></span></div>
+          <div class="lp-stack-chip"><span><span class="role">Charts</span><span class="name">Chart.js</span></span></div>
+          <div class="lp-stack-chip"><span><span class="role">Hosting</span><span class="name">Vercel</span></span></div>
         </div>
       </div>
     </section>
 
-    <!-- ─── SALES PAGE ─── -->
-    <section id="page-sales" class="page-section">
-      <div class="page-content">
-        <div class="page-header">
-          <div>
-            <h2>Sales</h2>
-            <p>Record new sales and view sales history</p>
-          </div>
-          <button class="btn btn-primary" onclick="openNewSale()">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-            Record Sale
-          </button>
-        </div>
-
-        <div class="filter-bar">
-          <input type="text" id="sales-search" placeholder="Search by invoice or customer…" />
-        </div>
-
-        <div class="card">
-          <div class="card-body no-pad">
-            <div class="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Invoice</th>
-                    <th>Customer</th>
-                    <th>Date</th>
-                    <th class="text-right">Amount</th>
-                    <th>Payment</th>
-                    <th>Status</th>
-                  </tr>
-                </thead>
-                <tbody id="sales-tbody">
-                  <tr><td colspan="6" style="padding:32px;text-align:center;color:var(--text-muted)">Loading sales…</td></tr>
-                </tbody>
-              </table>
-            </div>
-            <div class="pagination" id="sales-pagination"></div>
-          </div>
+    <!-- ═══════════════ CLOSING CTA ═══════════════ -->
+    <section class="lp-section lp-cta">
+      <div class="wrap">
+        <span class="eyebrow">Ready when you are</span>
+        <h2>Take a look inside the dashboard</h2>
+        <p>Sample products, suppliers, and sales are already loaded — nothing to set up first.</p>
+        <div class="lp-cta-actions">
+          <a class="btn btn-primary" href="dashboard.html">Launch Dashboard →</a>
+          <a class="btn btn-ghost" href="https://github.com/ankitghosh1809/inventrack-inventory-system" target="_blank" rel="noopener">View source on GitHub</a>
         </div>
       </div>
     </section>
 
-    <!-- ─── ALERTS PAGE ─── -->
-    <section id="page-alerts" class="page-section">
-      <div class="page-content">
-        <div class="page-header">
-          <div>
-            <h2>Restock Alerts</h2>
-            <p>Products that have fallen below their reorder threshold</p>
-          </div>
-          <button class="btn btn-secondary" onclick="loadAlerts()">Refresh</button>
-        </div>
+  </main>
 
-        <div class="card">
-          <div class="card-body no-pad" id="alerts-list">
-            <div class="empty-state"><p>Loading alerts…</p></div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-  </div><!-- /main-content -->
-
-
-  <!-- ═══════════════ MODALS ═══════════════ -->
-
-  <!-- Product Modal -->
-  <div class="modal-overlay" id="product-modal">
-    <div class="modal">
-      <div class="modal-header">
-        <h3 id="product-modal-title">Add Product</h3>
-        <button class="modal-close" onclick="closeModal('product-modal')">✕</button>
-      </div>
-      <div class="modal-body">
-        <form id="product-form" onsubmit="return false">
-          <div class="form-grid">
-            <div class="form-group">
-              <label for="f-name">Product Name *</label>
-              <input type="text" id="f-name" placeholder="e.g. Wireless Mouse" />
-            </div>
-            <div class="form-group">
-              <label for="f-sku">SKU *</label>
-              <input type="text" id="f-sku" placeholder="e.g. ELEC-001" />
-            </div>
-            <div class="form-group">
-              <label for="f-category">Category</label>
-              <select id="f-category"><option value="">— Select —</option></select>
-            </div>
-            <div class="form-group">
-              <label for="f-supplier">Supplier</label>
-              <select id="f-supplier"><option value="">— Select —</option></select>
-            </div>
-            <div class="form-group">
-              <label for="f-unit_price">Cost Price (₹) *</label>
-              <input type="number" id="f-unit_price" min="0" step="0.01" placeholder="0.00" />
-            </div>
-            <div class="form-group">
-              <label for="f-selling_price">Selling Price (₹) *</label>
-              <input type="number" id="f-selling_price" min="0" step="0.01" placeholder="0.00" />
-            </div>
-            <div class="form-group">
-              <label for="f-quantity_in_stock">Opening Stock</label>
-              <input type="number" id="f-quantity_in_stock" min="0" placeholder="0" />
-            </div>
-            <div class="form-group">
-              <label for="f-unit">Unit</label>
-              <input type="text" id="f-unit" placeholder="pcs / kg / box / litre" />
-            </div>
-            <div class="form-group">
-              <label for="f-reorder_level">Reorder Level (alert threshold)</label>
-              <input type="number" id="f-reorder_level" min="0" placeholder="10" />
-            </div>
-            <div class="form-group">
-              <label for="f-reorder_quantity">Reorder Quantity (suggested)</label>
-              <input type="number" id="f-reorder_quantity" min="0" placeholder="50" />
-            </div>
-            <div class="form-group full">
-              <label for="f-description">Description</label>
-              <textarea id="f-description" placeholder="Optional product description…"></textarea>
-            </div>
-          </div>
-          <div class="form-actions">
-            <button class="btn btn-secondary" type="button" onclick="closeModal('product-modal')">Cancel</button>
-            <button class="btn btn-primary" type="button" onclick="submitProductForm()">Save Product</button>
-          </div>
-        </form>
+  <!-- ═══════════════ FOOTER ═══════════════ -->
+  <footer class="lp-footer">
+    <div class="wrap">
+      <span>© 2026 InvenTrack — MIT Licensed</span>
+      <div class="lp-footer-links">
+        <a href="https://github.com/ankitghosh1809/inventrack-inventory-system" target="_blank" rel="noopener">GitHub</a>
+        <a href="dashboard.html">Dashboard</a>
       </div>
     </div>
-  </div>
-
-  <!-- Stock Adjustment Modal -->
-  <div class="modal-overlay" id="adjust-modal">
-    <div class="modal" style="max-width:400px">
-      <div class="modal-header">
-        <h3>Adjust Stock</h3>
-        <button class="modal-close" onclick="closeModal('adjust-modal')">✕</button>
-      </div>
-      <div class="modal-body">
-        <p style="margin-bottom:14px">
-          <strong id="adj-product-name"></strong><br>
-          <span class="text-muted" style="font-size:.85rem">Current stock: <strong id="adj-current-stock"></strong> units</span>
-        </p>
-        <form id="adj-form" onsubmit="return false">
-          <div class="form-grid cols-1">
-            <div class="form-group">
-              <label>Quantity Change</label>
-              <input type="number" id="adj-quantity" placeholder="e.g. +50 to add, -5 to remove" />
-              <small class="text-muted">Use positive numbers to add stock, negative to remove.</small>
-            </div>
-            <div class="form-group">
-              <label>Movement Type</label>
-              <select id="adj-type">
-                <option value="adjustment">Manual Adjustment</option>
-                <option value="purchase">Purchase / Restock</option>
-                <option value="return">Customer Return</option>
-                <option value="damage">Damaged / Written Off</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label>Notes</label>
-              <textarea id="adj-notes" rows="2" placeholder="Reason for adjustment (optional)"></textarea>
-            </div>
-          </div>
-          <div class="form-actions">
-            <button class="btn btn-secondary" type="button" onclick="closeModal('adjust-modal')">Cancel</button>
-            <button class="btn btn-primary" type="button" onclick="submitStockAdjust()">Apply Adjustment</button>
-          </div>
-        </form>
-      </div>
-    </div>
-  </div>
-
-  <!-- Supplier Modal -->
-  <div class="modal-overlay" id="supplier-modal">
-    <div class="modal">
-      <div class="modal-header">
-        <h3 id="supplier-modal-title">Add Supplier</h3>
-        <button class="modal-close" onclick="closeModal('supplier-modal')">✕</button>
-      </div>
-      <div class="modal-body">
-        <form onsubmit="return false">
-          <input type="hidden" id="sf-id" />
-          <div class="form-grid">
-            <div class="form-group">
-              <label for="sf-name">Supplier Name *</label>
-              <input type="text" id="sf-name" placeholder="Company name" />
-            </div>
-            <div class="form-group">
-              <label for="sf-contact">Contact Person</label>
-              <input type="text" id="sf-contact" placeholder="Primary contact" />
-            </div>
-            <div class="form-group">
-              <label for="sf-email">Email *</label>
-              <input type="email" id="sf-email" placeholder="supplier@example.com" />
-            </div>
-            <div class="form-group">
-              <label for="sf-phone">Phone</label>
-              <input type="tel" id="sf-phone" placeholder="+91-XXXXXXXXXX" />
-            </div>
-            <div class="form-group">
-              <label for="sf-city">City</label>
-              <input type="text" id="sf-city" placeholder="City" />
-            </div>
-            <div class="form-group">
-              <label for="sf-country">Country</label>
-              <input type="text" id="sf-country" value="India" />
-            </div>
-            <div class="form-group full">
-              <label for="sf-address">Address</label>
-              <textarea id="sf-address" rows="2" placeholder="Street address…"></textarea>
-            </div>
-          </div>
-          <div class="form-actions">
-            <button class="btn btn-secondary" type="button" onclick="closeModal('supplier-modal')">Cancel</button>
-            <button class="btn btn-primary" type="button" onclick="submitSupplierForm()">Save Supplier</button>
-          </div>
-        </form>
-      </div>
-    </div>
-  </div>
-
-  <!-- New Sale Modal -->
-  <div class="modal-overlay" id="sale-modal">
-    <div class="modal" style="max-width:640px">
-      <div class="modal-header">
-        <h3>Record New Sale</h3>
-        <button class="modal-close" onclick="closeModal('sale-modal')">✕</button>
-      </div>
-      <div class="modal-body">
-        <div class="form-grid">
-          <div class="form-group">
-            <label for="sale-customer">Customer Name</label>
-            <input type="text" id="sale-customer" placeholder="Walk-in Customer" />
-          </div>
-          <div class="form-group">
-            <label for="sale-email">Customer Email</label>
-            <input type="email" id="sale-email" placeholder="customer@email.com" />
-          </div>
-          <div class="form-group">
-            <label for="sale-payment">Payment Method</label>
-            <select id="sale-payment">
-              <option value="cash">Cash</option>
-              <option value="card">Card</option>
-              <option value="upi">UPI</option>
-              <option value="bank_transfer">Bank Transfer</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label for="sale-discount">Discount (₹)</label>
-            <input type="number" id="sale-discount" value="0" min="0" />
-          </div>
-        </div>
-
-        <!-- Item Adder -->
-        <div style="margin:18px 0 10px;font-weight:600;font-size:.9rem">Add Items</div>
-        <div style="display:flex;gap:8px;margin-bottom:12px">
-          <select id="sale-product-select" style="flex:1"><option value="">— Select Product —</option></select>
-          <input type="number" id="sale-qty" value="1" min="1" style="width:80px" />
-          <button class="btn btn-secondary" onclick="addSaleItem()">Add</button>
-        </div>
-
-        <div id="sale-items-list" style="min-height:60px;margin-bottom:12px"></div>
-
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-top:2px solid var(--border)">
-          <span style="font-weight:600">Total Amount</span>
-          <span style="font-size:1.3rem;font-weight:700;color:var(--accent)" id="sale-total-display">₹0</span>
-        </div>
-
-        <div class="form-group" style="margin-top:8px">
-          <label for="sale-notes">Notes</label>
-          <textarea id="sale-notes" rows="2" placeholder="Any special notes…"></textarea>
-        </div>
-
-        <div class="form-actions">
-          <button class="btn btn-secondary" onclick="closeModal('sale-modal')">Cancel</button>
-          <button class="btn btn-primary" onclick="submitSale()">Confirm Sale</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Toast Container -->
-  <div id="toast-container"></div>
+  </footer>
 
 </body>
 </html>
