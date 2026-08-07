@@ -391,31 +391,17 @@ ul { list-style: none; }
   background: rgba(255,255,255,.18);
 }
 
-/* ── Stack strip ── */
-.lp-stack-grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-}
-.lp-stack-chip {
+/* ── Pricing CTA ── */
+.lp-pricing-cta {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 12px 18px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  font-size: .86rem;
+  gap: 18px;
+  flex-wrap: wrap;
 }
-.lp-stack-chip .role {
-  font-family: var(--font-mono);
-  font-size: .66rem;
-  text-transform: uppercase;
-  letter-spacing: .08em;
+.lp-pricing-note {
+  font-size: .85rem;
   color: var(--text-muted);
-  display: block;
 }
-.lp-stack-chip .name { font-weight: 500; }
 
 /* ── Closing CTA ── */
 .lp-cta { text-align: center; }
@@ -460,6 +446,7 @@ ul { list-style: none; }
   .lp-menu-toggle { display: flex; }
   .lp-hero { padding: 44px 0 64px; }
   .lp-hero-actions .btn { flex: 1; min-width: 140px; }
+  .lp-pricing-cta { flex-direction: column; align-items: flex-start; gap: 12px; }
   .lp-section { padding: 60px 0; }
   .lp-feature-grid { grid-template-columns: 1fr; }
   .lp-preview-card { transform: none; padding: 18px 18px 4px; }
