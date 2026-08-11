@@ -49,14 +49,11 @@ inventory-management-system/
 │   └── .env.example            # Copy to .env and fill in real values
 │
 ├── frontend/
-│   ├── index.html          # Marketing landing page (served at /)
-│   ├── dashboard.html      # Single-page dashboard UI (the actual app)
+│   ├── index.html          # The dashboard — single page, login-gated
 │   ├── css/
-│   │   ├── style.css       # Dashboard + login screen styles
-│   │   └── landing.css     # Landing page styles (self-contained)
+│   │   └── style.css       # Dashboard + login screen styles
 │   └── js/
-│       ├── main.js         # Dashboard logic, auth flow, and API calls
-│       └── landing.js      # Landing page nav toggle + scroll reveal
+│       └── main.js         # Dashboard logic, auth flow, and API calls
 │
 ├── database/
 │   ├── schema.sql           # Full DB schema + seed data (fresh installs)
@@ -135,9 +132,9 @@ When run this way, Flask also serves `frontend/` directly (matching how `vercel.
 http://localhost:5000
 ```
 
-That's the landing page; the dashboard is at `http://localhost:5000/dashboard.html`. No build step needed. Both pages are responsive; the dashboard's sidebar collapses into a hamburger-triggered drawer below 1024px.
+No build step needed. It's responsive; the sidebar collapses into a hamburger-triggered drawer below 1024px.
 
-*(Opening `frontend/dashboard.html` directly as a `file://` path won't work — its `fetch("/api/...")` calls need to be same-origin with the Flask server, which is exactly what browsing to `http://localhost:5000/dashboard.html` gives you.)*
+*(Opening `frontend/index.html` directly as a `file://` path won't work — its `fetch("/api/...")` calls need to be same-origin with the Flask server, which is exactly what browsing to `http://localhost:5000` gives you.)*
 
 ### 6. Log in
 

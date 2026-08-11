@@ -116,7 +116,10 @@ def paginate_args():
 # ─────────────────────────────────────────────
 
 @app.route("/")
-def serve_landing():
+def serve_app():
+    # frontend/index.html *is* the dashboard — there's no separate
+    # marketing landing page. The login screen embedded in it is what
+    # actually gates access (see auth.py), not the routing here.
     return send_from_directory(FRONTEND_DIR, "index.html")
 
 
