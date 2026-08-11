@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS categories (
     id          SERIAL        PRIMARY KEY,
     name        VARCHAR(100)  NOT NULL UNIQUE,
     description TEXT,
+    is_active   BOOLEAN       DEFAULT TRUE,
     created_at  TIMESTAMP     DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -37,7 +38,7 @@ CREATE TABLE IF NOT EXISTS products (
     supplier_id       INT,
     unit_price        DECIMAL(10,2)  NOT NULL DEFAULT 0.00,
     selling_price     DECIMAL(10,2)  NOT NULL DEFAULT 0.00,
-    quantity_in_stock INT            NOT NULL DEFAULT 0,
+    quantity_in_stock INT            NOT NULL DEFAULT 0 CHECK (quantity_in_stock >= 0),
     reorder_level     INT            NOT NULL DEFAULT 10,
     reorder_quantity  INT            NOT NULL DEFAULT 50,
     unit              VARCHAR(30)    DEFAULT 'pcs',
@@ -61,6 +62,7 @@ CREATE TABLE IF NOT EXISTS sales (
     status          VARCHAR(20)    DEFAULT 'completed'
                     CHECK (status IN ('pending', 'completed', 'cancelled', 'refunded')),
     notes           TEXT,
+    created_by      VARCHAR(80)    DEFAULT 'system',
     created_at      TIMESTAMP      DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -99,6 +101,18 @@ CREATE TABLE IF NOT EXISTS restock_alerts (
     created_at    TIMESTAMP   DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
 );
+
+-- Postgres does not auto-index foreign key columns (only primary keys /
+-- UNIQUE constraints get one automatically), so the columns this app
+-- filters and joins on most often get explicit indexes.
+CREATE INDEX IF NOT EXISTS idx_products_category_id   ON products(category_id);
+CREATE INDEX IF NOT EXISTS idx_products_supplier_id    ON products(supplier_id);
+CREATE INDEX IF NOT EXISTS idx_sale_items_sale_id       ON sale_items(sale_id);
+CREATE INDEX IF NOT EXISTS idx_sale_items_product_id    ON sale_items(product_id);
+CREATE INDEX IF NOT EXISTS idx_stock_movements_product_id ON stock_movements(product_id);
+CREATE INDEX IF NOT EXISTS idx_restock_alerts_product_id  ON restock_alerts(product_id);
+CREATE INDEX IF NOT EXISTS idx_restock_alerts_unresolved  ON restock_alerts(is_resolved) WHERE is_resolved = FALSE;
+CREATE INDEX IF NOT EXISTS idx_sales_created_at         ON sales(created_at);
 
 -- Postgres has no "ON UPDATE CURRENT_TIMESTAMP" column option (that's
 -- MySQL-only), so updated_at is refreshed with a trigger instead.

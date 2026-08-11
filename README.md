@@ -8,11 +8,14 @@ The system handles everything a small-to-mid-sized business needs: product catal
 
 ## Features
 
+- **Login** — Single-admin session login guards the entire API; nothing works without signing in first
 - **Product Management** — Add, edit, and deactivate products with SKU, category, pricing, and unit tracking
 - **Supplier Management** — Maintain a supplier directory with contact details linked to products
-- **Real-Time Stock Tracking** — Every stock change (sale, purchase, adjustment, damage) is logged as a movement record
+- **Category Management** — Full CRUD, including deactivating categories no longer in use
+- **Real-Time Stock Tracking** — Every stock change (sale, purchase, adjustment, damage, return) is logged as a movement record, and every write that touches stock is atomic and row-locked so concurrent sales can't oversell the same product
 - **Low-Stock Alerts** — Automatic alerts fire when stock drops to or below the reorder threshold; includes suggested reorder quantity and supplier contact
 - **Sales Recording** — Multi-item invoices with customer details, payment method, discounts, and auto-decrement of stock
+- **Sale Cancellation / Refunds** — Cancel or refund a sale and its stock is automatically restored
 - **Analytics Dashboard** — Revenue charts, top-selling products, stock value by category
 - **Stock Movements Audit Trail** — Full history of who changed what and when
 
@@ -37,26 +40,28 @@ The system handles everything a small-to-mid-sized business needs: product catal
 inventory-management-system/
 │
 ├── api/                    # Deployed to Vercel as a serverless function
-│   ├── index.py            # Vercel entry point (imports app)
-│   ├── app.py               # Flask app — all API routes
-│   ├── models.py            # All database queries and business logic
-│   ├── database.py          # Postgres (Neon) connection + query helpers
-│   └── config.py            # Config from environment variables
-│
-├── backend/                # Legacy pre-Vercel copy, not deployed — safe to delete
+│   ├── index.py             # Vercel entry point (imports app)
+│   ├── app.py                # Flask app — all API routes
+│   ├── auth.py                # Login/logout/session (single-admin)
+│   ├── models.py              # All database queries and business logic
+│   ├── database.py            # Postgres (Neon) connection + query helpers
+│   ├── config.py               # Config from environment variables
+│   └── .env.example            # Copy to .env and fill in real values
 │
 ├── frontend/
 │   ├── index.html          # Marketing landing page (served at /)
 │   ├── dashboard.html      # Single-page dashboard UI (the actual app)
 │   ├── css/
-│   │   ├── style.css       # Dashboard styles
+│   │   ├── style.css       # Dashboard + login screen styles
 │   │   └── landing.css     # Landing page styles (self-contained)
 │   └── js/
-│       ├── main.js         # Dashboard logic and API calls
+│       ├── main.js         # Dashboard logic, auth flow, and API calls
 │       └── landing.js      # Landing page nav toggle + scroll reveal
 │
 ├── database/
-│   └── schema.sql          # Full DB schema + seed data
+│   ├── schema.sql           # Full DB schema + seed data (fresh installs)
+│   └── migrations/
+│       └── 001_add_auth_and_integrity.sql   # Run once against an existing DB
 │
 └── README.md
 ```
@@ -88,16 +93,28 @@ psql "$DATABASE_URL" -f database/schema.sql
 
 This creates all tables, the `updated_at` triggers, and loads sample data so you can explore the app right away.
 
+**Already have a database from before?** (i.e. you set it up before login/category-deactivation/audit-trail support existed) — run the migration once instead of the full schema:
+
+```bash
+psql "$DATABASE_URL" -f database/migrations/001_add_auth_and_integrity.sql
+```
+
+It only adds what's missing (new columns, a constraint, some indexes) and is safe to run more than once. Skip this if you just ran `schema.sql` above on a brand-new database — it already includes everything.
+
 ### 3. Configure environment variables
 
-Create a `.env` file inside `api/`:
+Copy `api/.env.example` to `api/.env` and fill in real values:
 
 ```
 DATABASE_URL=postgresql://user:password@host/dbname?sslmode=require
 SECRET_KEY=some-long-random-string
+ADMIN_USERNAME=admin
+ADMIN_PASSWORD=some-strong-password
 ```
 
 Use the **pooled** connection string from your Neon dashboard (hostname contains `-pooler`) — Vercel's serverless functions open a fresh connection per invocation, and the direct (non-pooled) endpoint runs out of connections much faster under concurrent load.
+
+`ADMIN_USERNAME`/`ADMIN_PASSWORD` are what you'll log into the dashboard with — the app will warn on startup if you leave them at their defaults.
 
 ### 4. Install Python dependencies
 
@@ -112,15 +129,23 @@ cd api
 python app.py
 ```
 
-The API will start at `http://localhost:5000`.
+When run this way, Flask also serves `frontend/` directly (matching how `vercel.json` routes things in production), so there's nothing extra to configure — just open your browser to:
 
-### 6. Open the frontend
+```
+http://localhost:5000
+```
 
-Open `frontend/index.html` for the landing page, or go straight to `frontend/dashboard.html` for the app — no build step needed. The dashboard will connect to the Flask API automatically. Both pages are responsive; the dashboard's sidebar collapses into a hamburger-triggered drawer below 1024px.
+That's the landing page; the dashboard is at `http://localhost:5000/dashboard.html`. No build step needed. Both pages are responsive; the dashboard's sidebar collapses into a hamburger-triggered drawer below 1024px.
+
+*(Opening `frontend/dashboard.html` directly as a `file://` path won't work — its `fetch("/api/...")` calls need to be same-origin with the Flask server, which is exactly what browsing to `http://localhost:5000/dashboard.html` gives you.)*
+
+### 6. Log in
+
+The dashboard is behind a login screen — sign in with the `ADMIN_USERNAME` / `ADMIN_PASSWORD` you set in `api/.env`.
 
 ### Deploying to Vercel
 
-`vercel.json` already routes `/api/*` to `api/index.py` and serves `frontend/` as static files. In the Vercel project's Settings → Environment Variables, add `DATABASE_URL` (the pooled Neon string), then push to trigger a deploy.
+`vercel.json` already routes `/api/*` to `api/index.py` and serves `frontend/` as static files. In the Vercel project's Settings → Environment Variables, add `DATABASE_URL` (the pooled Neon string), `SECRET_KEY`, `ADMIN_USERNAME`, and `ADMIN_PASSWORD`, then push to trigger a deploy. Vercel sets its own `VERCEL` environment variable automatically, which the app uses to require secure (HTTPS-only) session cookies in production without any extra config.
 
 ---
 
@@ -135,6 +160,16 @@ All endpoints return JSON in this shape:
   "data": { ... }
 }
 ```
+
+Every `/api/*` endpoint below requires a logged-in session **except** `/api/health` and `/api/auth/*` themselves — call them without one and you'll get a `401`. Log in first (see Auth, below); the browser will hold onto the session cookie automatically after that.
+
+### Auth
+
+| Method | Endpoint | Description |
+|---|---|---|
+| POST | `/api/auth/login` | `{ "username", "password" }` → sets the session cookie |
+| POST | `/api/auth/logout` | Clears the session |
+| GET | `/api/auth/me` | `{ "authenticated": bool, "username" }` — never 401s, even when logged out |
 
 ### Dashboard
 
@@ -170,7 +205,10 @@ All endpoints return JSON in this shape:
 |---|---|---|
 | GET | `/api/sales` | List sales (supports `search`, pagination) |
 | GET | `/api/sales/:id` | Get a sale with its line items |
-| POST | `/api/sales` | Record a new sale |
+| POST | `/api/sales` | Record a new sale (atomic — see note below) |
+| PATCH | `/api/sales/:id/status` | `{ "status": "cancelled" \| "refunded" }` — restocks the sale's items |
+
+`POST /api/sales` runs as a single database transaction and locks every product involved before checking stock, so two sales for the same product can't both succeed past what's actually available — see the docstring on `models.create_sale` for the details.
 
 ### Alerts
 
@@ -179,14 +217,21 @@ All endpoints return JSON in this shape:
 | GET | `/api/alerts` | Get all unresolved low-stock alerts |
 | PATCH | `/api/alerts/:id/resolve` | Mark an alert as resolved |
 
+### Categories
+
+| Method | Endpoint | Description |
+|---|---|---|
+| GET | `/api/categories` | List categories (`active_only=false` to include deactivated ones) |
+| POST | `/api/categories` | Create a category |
+| PUT | `/api/categories/:id` | Update a category |
+| DELETE | `/api/categories/:id` | Deactivate a category |
+
 ### Misc
 
 | Method | Endpoint | Description |
 |---|---|---|
-| GET | `/api/categories` | List all categories |
-| POST | `/api/categories` | Create a category |
 | GET | `/api/stock-movements` | Recent stock movements (all products) |
-| GET | `/api/health` | Health check |
+| GET | `/api/health` | Health check — actually pings the database, not just "is the process up" |
 
 ---
 

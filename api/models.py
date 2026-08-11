@@ -3,12 +3,23 @@ models.py — All database interactions for the Inventory Management System.
 
 Each section maps to a feature area: products, suppliers, sales, alerts, analytics.
 Functions return plain dicts/lists so the Flask routes stay thin.
+
+Functions that need to change more than one row together (create_sale,
+adjust_stock, cancel_or_refund_sale, create_product) manage their own
+connection/cursor directly and commit once at the end, instead of going
+through execute_query() (which opens a new connection and commits on
+every single call). Doing several separate execute_query() calls for
+what's logically one operation is how the previous version of
+create_sale could end up with a sale recorded but its stock movements
+missing, or two concurrent sales both reading the same "stock available"
+number and overselling — see create_sale's docstring below.
 """
 
 import random
 import string
+import psycopg2.extras
 from datetime import datetime
-from database import execute_query, execute_transaction
+from database import execute_query, get_connection
 
 
 # ─────────────────────────────────────────────
@@ -26,14 +37,41 @@ def generate_invoice_number():
 # CATEGORIES
 # ─────────────────────────────────────────────
 
-def get_all_categories():
+def get_all_categories(active_only=True):
+    if active_only:
+        return execute_query(
+            "SELECT * FROM categories WHERE is_active = TRUE ORDER BY name", fetch=True
+        )
     return execute_query("SELECT * FROM categories ORDER BY name", fetch=True)
+
+
+def get_category_by_id(category_id):
+    rows = execute_query(
+        "SELECT * FROM categories WHERE id = %s", (category_id,), fetch=True
+    )
+    return rows[0] if rows else None
 
 
 def create_category(name, description=None):
     return execute_query(
         "INSERT INTO categories (name, description) VALUES (%s, %s) RETURNING id",
         (name, description),
+    )
+
+
+def update_category(category_id, name, description=None, is_active=True):
+    return execute_query(
+        "UPDATE categories SET name=%s, description=%s, is_active=%s WHERE id=%s",
+        (name, description, is_active, category_id),
+    )
+
+
+def delete_category(category_id):
+    # Soft delete, same pattern as products/suppliers — products
+    # referencing this category keep their history (FK is ON DELETE
+    # SET NULL, but we never hard-delete the row at all here).
+    return execute_query(
+        "UPDATE categories SET is_active = FALSE WHERE id = %s", (category_id,)
     )
 
 
@@ -151,38 +189,54 @@ def get_product_by_id(product_id):
     return rows[0] if rows else None
 
 
-def create_product(data):
-    product_id = execute_query(
-        """INSERT INTO products
-           (name, sku, description, category_id, supplier_id, unit_price,
-            selling_price, quantity_in_stock, reorder_level, reorder_quantity, unit)
-           VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id""",
-        (
-            data["name"],
-            data["sku"],
-            data.get("description"),
-            data.get("category_id"),
-            data.get("supplier_id"),
-            data["unit_price"],
-            data["selling_price"],
-            data.get("quantity_in_stock", 0),
-            data.get("reorder_level", 10),
-            data.get("reorder_quantity", 50),
-            data.get("unit", "pcs"),
-        ),
-    )
-
-    # Log initial stock movement if there's opening stock
-    if data.get("quantity_in_stock", 0) > 0:
-        _log_stock_movement(
-            product_id=product_id,
-            movement_type="adjustment",
-            quantity_change=data["quantity_in_stock"],
-            quantity_after=data["quantity_in_stock"],
-            notes="Opening stock entry",
+def create_product(data, created_by="system"):
+    """Insert the product and (if it has opening stock) log that as a
+    stock movement, in one transaction — so a failure logging the
+    movement can't leave a product row with no matching audit entry."""
+    conn = get_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    try:
+        cur.execute(
+            """INSERT INTO products
+               (name, sku, description, category_id, supplier_id, unit_price,
+                selling_price, quantity_in_stock, reorder_level, reorder_quantity, unit)
+               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id""",
+            (
+                data["name"],
+                data["sku"],
+                data.get("description"),
+                data.get("category_id"),
+                data.get("supplier_id"),
+                data["unit_price"],
+                data["selling_price"],
+                data.get("quantity_in_stock", 0),
+                data.get("reorder_level", 10),
+                data.get("reorder_quantity", 50),
+                data.get("unit", "pcs"),
+            ),
         )
+        product_id = cur.fetchone()["id"]
 
-    return product_id
+        opening_stock = data.get("quantity_in_stock", 0) or 0
+        if opening_stock > 0:
+            _log_stock_movement_tx(
+                cur,
+                product_id=product_id,
+                movement_type="adjustment",
+                quantity_change=opening_stock,
+                quantity_after=opening_stock,
+                notes="Opening stock entry",
+                created_by=created_by,
+            )
+
+        conn.commit()
+        return product_id
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        cur.close()
+        conn.close()
 
 
 def update_product(product_id, data):
@@ -206,31 +260,42 @@ def update_product(product_id, data):
     )
 
 
-def adjust_stock(product_id, quantity_change, movement_type="adjustment", notes=None):
-    """Manually increase or decrease stock. quantity_change can be negative."""
-    product = get_product_by_id(product_id)
-    if not product:
-        raise ValueError("Product not found")
+def adjust_stock(product_id, quantity_change, movement_type="adjustment", notes=None, created_by="system"):
+    """Manually increase or decrease stock (quantity_change can be
+    negative). Row-locks the product for the read-modify-write so two
+    concurrent adjustments on the same product can't race each other
+    the same way create_sale's could — see create_sale's docstring."""
+    conn = get_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    try:
+        cur.execute("SELECT * FROM products WHERE id = %s FOR UPDATE", (product_id,))
+        product = cur.fetchone()
+        if not product:
+            raise ValueError("Product not found")
 
-    new_stock = product["quantity_in_stock"] + quantity_change
-    if new_stock < 0:
-        raise ValueError("Adjustment would result in negative stock")
+        new_stock = product["quantity_in_stock"] + quantity_change
+        if new_stock < 0:
+            raise ValueError("Adjustment would result in negative stock")
 
-    execute_query(
-        "UPDATE products SET quantity_in_stock = %s WHERE id = %s",
-        (new_stock, product_id),
-    )
+        cur.execute(
+            "UPDATE products SET quantity_in_stock = %s WHERE id = %s",
+            (new_stock, product_id),
+        )
+        _log_stock_movement_tx(
+            cur, product_id=product_id, movement_type=movement_type,
+            quantity_change=quantity_change, quantity_after=new_stock,
+            notes=notes, created_by=created_by,
+        )
+        _check_and_create_alert_tx(cur, product_id, new_stock, product["reorder_level"])
 
-    _log_stock_movement(
-        product_id=product_id,
-        movement_type=movement_type,
-        quantity_change=quantity_change,
-        quantity_after=new_stock,
-        notes=notes,
-    )
-
-    _check_and_create_alert(product_id, new_stock, product["reorder_level"])
-    return new_stock
+        conn.commit()
+        return new_stock
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        cur.close()
+        conn.close()
 
 
 def delete_product(product_id):
@@ -264,73 +329,163 @@ def get_stock_movements(product_id=None, limit=50):
 # SALES
 # ─────────────────────────────────────────────
 
-def create_sale(sale_data, items):
+def create_sale(sale_data, items, created_by="system"):
     """
-    Create a sale with multiple line items.
-    Decrements stock for each product and logs movements.
-    items: list of {product_id, quantity, unit_price}
+    Create a sale with multiple line items, atomically.
+
+    Two things the original version got wrong:
+
+    1. It made 2 + (3 × item count) separate execute_query() calls,
+       each its own connection and its own commit. If any call after
+       the first failed — a bad product_id on item 3 of 4, say — the
+       sale header and the first two items were already permanently
+       committed, with no items/stock movements for the rest and no
+       way to roll any of it back. Everything below runs on one
+       connection and commits exactly once at the end; any failure
+       rolls the whole sale back.
+
+    2. It checked "is there enough stock" by re-reading each product
+       with a plain SELECT, once per line item, before writing
+       anything. That's a classic check-then-act race: two concurrent
+       sales for the same product can both read the same "stock
+       available" number and both pass validation, oversell the
+       product, and drive quantity_in_stock negative. The same thing
+       happens with no concurrency at all if a single sale lists the
+       same product twice — each line's individual check passes
+       against the not-yet-decremented total even though the combined
+       quantity exceeds what's in stock (reproduced this locally: one
+       request for 70+70 units against a stock of 120 left stock at
+       -20). Below, quantities for repeated product_ids are combined
+       first, and every product involved is locked with
+       SELECT ... FOR UPDATE (in a consistent id order, so two
+       concurrent multi-item sales can't deadlock against each other)
+       before the combined quantity is checked against real, locked
+       stock.
     """
-    # Validate stock availability first
+    if not items:
+        raise ValueError("At least one item is required")
+
+    qty_by_product = {}
     for item in items:
-        product = get_product_by_id(item["product_id"])
-        if not product:
-            raise ValueError(f"Product {item['product_id']} not found")
-        if product["quantity_in_stock"] < item["quantity"]:
-            raise ValueError(
-                f"Insufficient stock for '{product['name']}'. "
-                f"Available: {product['quantity_in_stock']}, Requested: {item['quantity']}"
+        qty_by_product[item["product_id"]] = qty_by_product.get(item["product_id"], 0) + item["quantity"]
+
+    conn = get_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    try:
+        products = {}
+        for product_id in sorted(qty_by_product):
+            cur.execute("SELECT * FROM products WHERE id = %s FOR UPDATE", (product_id,))
+            product = cur.fetchone()
+            if not product:
+                raise ValueError(f"Product {product_id} not found")
+            needed = qty_by_product[product_id]
+            if product["quantity_in_stock"] < needed:
+                raise ValueError(
+                    f"Insufficient stock for '{product['name']}'. "
+                    f"Available: {product['quantity_in_stock']}, Requested: {needed}"
+                )
+            products[product_id] = product
+
+        invoice = generate_invoice_number()
+        total_amount = sum(i["quantity"] * i["unit_price"] for i in items)
+        discount = sale_data.get("discount", 0)
+        final_amount = total_amount - discount
+
+        cur.execute(
+            """INSERT INTO sales
+               (invoice_number, customer_name, customer_email, total_amount,
+                discount, final_amount, payment_method, status, notes, created_by)
+               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id""",
+            (
+                invoice,
+                sale_data.get("customer_name"),
+                sale_data.get("customer_email"),
+                total_amount,
+                discount,
+                final_amount,
+                sale_data.get("payment_method", "cash"),
+                "completed",
+                sale_data.get("notes"),
+                created_by,
+            ),
+        )
+        sale_id = cur.fetchone()["id"]
+
+        for item in items:
+            item_total = item["quantity"] * item["unit_price"]
+            cur.execute(
+                """INSERT INTO sale_items (sale_id, product_id, quantity, unit_price, total_price)
+                   VALUES (%s, %s, %s, %s, %s)""",
+                (sale_id, item["product_id"], item["quantity"], item["unit_price"], item_total),
             )
 
-    invoice = generate_invoice_number()
-    total_amount = sum(i["quantity"] * i["unit_price"] for i in items)
-    discount = sale_data.get("discount", 0)
-    final_amount = total_amount - discount
+        for product_id, needed in qty_by_product.items():
+            product = products[product_id]
+            new_stock = product["quantity_in_stock"] - needed
+            cur.execute(
+                "UPDATE products SET quantity_in_stock = %s WHERE id = %s",
+                (new_stock, product_id),
+            )
+            _log_stock_movement_tx(
+                cur, product_id=product_id, movement_type="sale",
+                quantity_change=-needed, quantity_after=new_stock,
+                reference_id=sale_id, created_by=created_by,
+            )
+            _check_and_create_alert_tx(cur, product_id, new_stock, product["reorder_level"])
 
-    # Insert sale header
-    sale_id = execute_query(
-        """INSERT INTO sales
-           (invoice_number, customer_name, customer_email, total_amount,
-            discount, final_amount, payment_method, status, notes)
-           VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id""",
-        (
-            invoice,
-            sale_data.get("customer_name"),
-            sale_data.get("customer_email"),
-            total_amount,
-            discount,
-            final_amount,
-            sale_data.get("payment_method", "cash"),
-            "completed",
-            sale_data.get("notes"),
-        ),
-    )
+        conn.commit()
+        return {"sale_id": sale_id, "invoice_number": invoice, "final_amount": final_amount}
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        cur.close()
+        conn.close()
 
-    # Insert line items and update stock
-    for item in items:
-        item_total = item["quantity"] * item["unit_price"]
-        execute_query(
-            """INSERT INTO sale_items (sale_id, product_id, quantity, unit_price, total_price)
-               VALUES (%s, %s, %s, %s, %s)""",
-            (sale_id, item["product_id"], item["quantity"], item["unit_price"], item_total),
-        )
 
-        # Decrement stock
-        product = get_product_by_id(item["product_id"])
-        new_stock = product["quantity_in_stock"] - item["quantity"]
-        execute_query(
-            "UPDATE products SET quantity_in_stock = %s WHERE id = %s",
-            (new_stock, item["product_id"]),
-        )
-        _log_stock_movement(
-            product_id=item["product_id"],
-            movement_type="sale",
-            quantity_change=-item["quantity"],
-            quantity_after=new_stock,
-            reference_id=sale_id,
-        )
-        _check_and_create_alert(item["product_id"], new_stock, product["reorder_level"])
+def cancel_or_refund_sale(sale_id, new_status, created_by="system"):
+    """Mark a sale cancelled/refunded and restock its items, atomically.
+    The 'cancelled'/'refunded' statuses already existed in the sales
+    table's CHECK constraint, but nothing in the app ever set them or
+    reversed the stock — this was write-only schema."""
+    conn = get_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    try:
+        cur.execute("SELECT * FROM sales WHERE id = %s FOR UPDATE", (sale_id,))
+        sale = cur.fetchone()
+        if not sale:
+            raise ValueError("Sale not found")
+        if sale["status"] in ("cancelled", "refunded"):
+            raise ValueError(f"Sale is already {sale['status']}")
 
-    return {"sale_id": sale_id, "invoice_number": invoice, "final_amount": final_amount}
+        cur.execute("SELECT * FROM sale_items WHERE sale_id = %s", (sale_id,))
+        sale_items = cur.fetchall()
+
+        for item in sale_items:
+            cur.execute("SELECT * FROM products WHERE id = %s FOR UPDATE", (item["product_id"],))
+            product = cur.fetchone()
+            if not product:
+                continue  # product no longer exists — nothing to restock
+            new_stock = product["quantity_in_stock"] + item["quantity"]
+            cur.execute(
+                "UPDATE products SET quantity_in_stock = %s WHERE id = %s",
+                (new_stock, item["product_id"]),
+            )
+            _log_stock_movement_tx(
+                cur, product_id=item["product_id"], movement_type="return",
+                quantity_change=item["quantity"], quantity_after=new_stock,
+                reference_id=sale_id, notes=f"Sale #{sale_id} {new_status}",
+                created_by=created_by,
+            )
+
+        cur.execute("UPDATE sales SET status = %s WHERE id = %s", (new_status, sale_id))
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        cur.close()
+        conn.close()
 
 
 def get_all_sales(page=1, per_page=10, search=None):
@@ -500,29 +655,28 @@ def get_category_stock_value():
 
 
 # ─────────────────────────────────────────────
-# INTERNAL HELPERS
+# INTERNAL HELPERS (transactional — take a cursor, don't commit)
 # ─────────────────────────────────────────────
 
-def _log_stock_movement(product_id, movement_type, quantity_change, quantity_after, reference_id=None, notes=None):
-    execute_query(
+def _log_stock_movement_tx(cur, product_id, movement_type, quantity_change, quantity_after,
+                            reference_id=None, notes=None, created_by="system"):
+    cur.execute(
         """INSERT INTO stock_movements
-           (product_id, movement_type, quantity_change, quantity_after, reference_id, notes)
-           VALUES (%s, %s, %s, %s, %s, %s)""",
-        (product_id, movement_type, quantity_change, quantity_after, reference_id, notes),
+           (product_id, movement_type, quantity_change, quantity_after, reference_id, notes, created_by)
+           VALUES (%s, %s, %s, %s, %s, %s, %s)""",
+        (product_id, movement_type, quantity_change, quantity_after, reference_id, notes, created_by),
     )
 
 
-def _check_and_create_alert(product_id, current_stock, reorder_level):
+def _check_and_create_alert_tx(cur, product_id, current_stock, reorder_level):
     """Create a restock alert if stock has dropped to or below the reorder level."""
     if current_stock <= reorder_level:
-        # Avoid duplicate unresolved alerts
-        existing = execute_query(
+        cur.execute(
             "SELECT id FROM restock_alerts WHERE product_id = %s AND is_resolved = FALSE",
             (product_id,),
-            fetch=True,
         )
-        if not existing:
-            execute_query(
+        if not cur.fetchone():
+            cur.execute(
                 """INSERT INTO restock_alerts (product_id, current_stock, reorder_level)
                    VALUES (%s, %s, %s)""",
                 (product_id, current_stock, reorder_level),
