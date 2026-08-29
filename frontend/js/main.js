@@ -33,14 +33,6 @@ async function api(path, options = {}) {
   };
   try {
     const res = await fetch(url, { ...defaults, ...options });
-
-    if (res.status === 401 && path !== "/auth/login") {
-      // Session missing/expired. Show the login screen instead of
-      // letting every caller independently guess what a 401 means.
-      showLoginScreen("Your session expired — please sign in again.");
-      throw new Error("Not authenticated");
-    }
-
     const json = await res.json();
     if (!res.ok || !json.success) {
       throw new Error(json.message || "API error");
@@ -877,7 +869,7 @@ function escHtml(str) {
 let appInitialized = false;
 
 function initApp() {
-  if (appInitialized) return; // guards against double-init if checkAuth ever re-fires
+  if (appInitialized) return; // guards against double-init
   appInitialized = true;
 
   // Nav click handlers
@@ -933,97 +925,6 @@ function initApp() {
   navigate("dashboard");
 }
 
-// ─────────────────────────────────────────────
-// AUTH / LOGIN SCREEN
-// ─────────────────────────────────────────────
-// The dashboard requires a login (see api/auth.py) — everything above
-// this section only ever runs after checkAuth() confirms a session.
-
-function showLoginScreen(message) {
-  document.getElementById("login-screen").classList.remove("hidden");
-  const errEl = document.getElementById("login-error");
-  if (message) {
-    errEl.textContent = message;
-    errEl.style.display = "block";
-  } else {
-    errEl.style.display = "none";
-  }
-  document.getElementById("login-password").value = "";
-  document.getElementById("login-username")?.focus();
-}
-
-function hideLoginScreen() {
-  document.getElementById("login-screen").classList.add("hidden");
-}
-
-async function checkAuth() {
-  try {
-    const res = await fetch(`${API_BASE}/auth/me`);
-    const json = await res.json();
-    if (json.data?.authenticated) {
-      document.getElementById("sidebar-user").textContent = json.data.username || "";
-      hideLoginScreen();
-      initApp();
-    } else {
-      showLoginScreen();
-    }
-  } catch (e) {
-    // Network hiccup or API unreachable — safe default is to require
-    // login rather than silently opening the dashboard.
-    showLoginScreen("Couldn't reach the server. Please try again.");
-  }
-}
-
-async function submitLogin() {
-  const username = val("login-username");
-  const password = document.getElementById("login-password").value;
-  const btn = document.getElementById("login-submit");
-
-  if (!username || !password) {
-    showLoginScreen("Enter both a username and password.");
-    return;
-  }
-
-  btn.disabled = true;
-  try {
-    const res = await fetch(`${API_BASE}/auth/login`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, password }),
-    });
-    const json = await res.json();
-    if (json.success) {
-      document.getElementById("sidebar-user").textContent = json.data.username || "";
-      hideLoginScreen();
-      initApp();
-    } else {
-      showLoginScreen(json.message || "Invalid username or password");
-    }
-  } catch (e) {
-    showLoginScreen("Couldn't reach the server. Please try again.");
-  } finally {
-    btn.disabled = false;
-  }
-}
-
-async function logout() {
-  try {
-    await fetch(`${API_BASE}/auth/logout`, { method: "POST" });
-  } catch (e) {
-    // Even if the request fails, still show the login screen locally —
-    // reloading picks up the real session state either way.
-  }
-  window.location.reload();
-}
-
 document.addEventListener("DOMContentLoaded", () => {
-  // Enter key submits the login form from either field
-  document.getElementById("login-username")?.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") submitLogin();
-  });
-  document.getElementById("login-password")?.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") submitLogin();
-  });
-
-  checkAuth();
+  initApp();
 });

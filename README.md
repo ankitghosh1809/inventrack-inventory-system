@@ -8,7 +8,6 @@ The system handles everything a small-to-mid-sized business needs: product catal
 
 ## Features
 
-- **Login** — Single-admin session login guards the entire API; nothing works without signing in first
 - **Product Management** — Add, edit, and deactivate products with SKU, category, pricing, and unit tracking
 - **Supplier Management** — Maintain a supplier directory with contact details linked to products
 - **Category Management** — Full CRUD, including deactivating categories no longer in use
@@ -42,18 +41,17 @@ inventory-management-system/
 ├── api/                    # Deployed to Vercel as a serverless function
 │   ├── index.py             # Vercel entry point (imports app)
 │   ├── app.py                # Flask app — all API routes
-│   ├── auth.py                # Login/logout/session (single-admin)
 │   ├── models.py              # All database queries and business logic
 │   ├── database.py            # Postgres (Neon) connection + query helpers
 │   ├── config.py               # Config from environment variables
 │   └── .env.example            # Copy to .env and fill in real values
 │
 ├── frontend/
-│   ├── index.html          # The dashboard — single page, login-gated
+│   ├── index.html          # The dashboard — single page, open access
 │   ├── css/
-│   │   └── style.css       # Dashboard + login screen styles
+│   │   └── style.css       # Dashboard styles
 │   └── js/
-│       └── main.js         # Dashboard logic, auth flow, and API calls
+│       └── main.js         # Dashboard logic and API calls
 │
 ├── database/
 │   ├── schema.sql           # Full DB schema + seed data (fresh installs)
@@ -104,14 +102,9 @@ Copy `api/.env.example` to `api/.env` and fill in real values:
 
 ```
 DATABASE_URL=postgresql://user:password@host/dbname?sslmode=require
-SECRET_KEY=some-long-random-string
-ADMIN_USERNAME=admin
-ADMIN_PASSWORD=some-strong-password
 ```
 
 Use the **pooled** connection string from your Neon dashboard (hostname contains `-pooler`) — Vercel's serverless functions open a fresh connection per invocation, and the direct (non-pooled) endpoint runs out of connections much faster under concurrent load.
-
-`ADMIN_USERNAME`/`ADMIN_PASSWORD` are what you'll log into the dashboard with — the app will warn on startup if you leave them at their defaults.
 
 ### 4. Install Python dependencies
 
@@ -136,13 +129,9 @@ No build step needed. It's responsive; the sidebar collapses into a hamburger-tr
 
 *(Opening `frontend/index.html` directly as a `file://` path won't work — its `fetch("/api/...")` calls need to be same-origin with the Flask server, which is exactly what browsing to `http://localhost:5000` gives you.)*
 
-### 6. Log in
-
-The dashboard is behind a login screen — sign in with the `ADMIN_USERNAME` / `ADMIN_PASSWORD` you set in `api/.env`.
-
 ### Deploying to Vercel
 
-`vercel.json` already routes `/api/*` to `api/index.py` and serves `frontend/` as static files. In the Vercel project's Settings → Environment Variables, add `DATABASE_URL` (the pooled Neon string), `SECRET_KEY`, `ADMIN_USERNAME`, and `ADMIN_PASSWORD`, then push to trigger a deploy. Vercel sets its own `VERCEL` environment variable automatically, which the app uses to require secure (HTTPS-only) session cookies in production without any extra config.
+`vercel.json` already routes `/api/*` to `api/index.py` and serves `frontend/` as static files. In the Vercel project's Settings → Environment Variables, add `DATABASE_URL` (the pooled Neon string), then push to trigger a deploy.
 
 ---
 
@@ -158,15 +147,7 @@ All endpoints return JSON in this shape:
 }
 ```
 
-Every `/api/*` endpoint below requires a logged-in session **except** `/api/health` and `/api/auth/*` themselves — call them without one and you'll get a `401`. Log in first (see Auth, below); the browser will hold onto the session cookie automatically after that.
-
-### Auth
-
-| Method | Endpoint | Description |
-|---|---|---|
-| POST | `/api/auth/login` | `{ "username", "password" }` → sets the session cookie |
-| POST | `/api/auth/logout` | Clears the session |
-| GET | `/api/auth/me` | `{ "authenticated": bool, "username" }` — never 401s, even when logged out |
+All endpoints below are open — no login or session required.
 
 ### Dashboard
 

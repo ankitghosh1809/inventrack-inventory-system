@@ -15,13 +15,12 @@ On Vercel, vercel.json serves frontend/ separately and this app only
 ever handles /api/*, so the static config below is simply unused there.
 """
 
-from flask import Flask, jsonify, request, session, send_from_directory
+from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
 import psycopg2
 
 import models
 from config import Config
-from auth import auth_bp, OPEN_PATHS
 from database import get_connection
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -31,28 +30,9 @@ app = Flask(__name__, static_folder=FRONTEND_DIR, static_url_path="")
 app.config.from_object(Config)
 
 # Only the origins listed in Config.CORS_ORIGINS (local-dev ports by
-# default) can make cross-origin requests, and cookies are allowed
-# through so the session survives a cross-origin local-dev setup.
-# In production, frontend and API share an origin and this is inert.
-CORS(app, supports_credentials=True, origins=Config.CORS_ORIGINS)
-
-app.register_blueprint(auth_bp)
-
-
-# ─────────────────────────────────────────────
-# AUTH GATE
-# ─────────────────────────────────────────────
-# Fails CLOSED by default: every /api/* route requires a logged-in
-# session unless its path is explicitly listed in auth.OPEN_PATHS.
-# A new route added later is automatically protected without anyone
-# having to remember to decorate it — the previous version of this
-# app relied on remembering to add checks to each route individually,
-# and predictably some (the PUT routes) never got them.
-@app.before_request
-def require_login():
-    if request.path.startswith("/api/") and request.path not in OPEN_PATHS:
-        if not session.get("logged_in"):
-            return error("Login required", 401)
+# default) can make cross-origin requests. In production, frontend
+# and API share an origin and this is inert.
+CORS(app, origins=Config.CORS_ORIGINS)
 
 
 # ─────────────────────────────────────────────
@@ -118,8 +98,7 @@ def paginate_args():
 @app.route("/")
 def serve_app():
     # frontend/index.html *is* the dashboard — there's no separate
-    # marketing landing page. The login screen embedded in it is what
-    # actually gates access (see auth.py), not the routing here.
+    # marketing landing page, and no login gate in front of it.
     return send_from_directory(FRONTEND_DIR, "index.html")
 
 
@@ -289,7 +268,7 @@ def add_product():
         return error(str(e))
 
     try:
-        product_id = models.create_product(data, created_by=session.get("username", "system"))
+        product_id = models.create_product(data, created_by="system")
         return success({"id": product_id}, "Product created", 201)
     except Exception as e:
         if getattr(e, "pgcode", None) == "23505":  # unique_violation
@@ -342,7 +321,7 @@ def adjust_stock(product_id):
             quantity_change,
             data.get("movement_type", "adjustment"),
             data.get("notes"),
-            created_by=session.get("username", "system"),
+            created_by="system",
         )
         return success({"new_stock": new_stock}, "Stock adjusted")
     except ValueError as e:
@@ -410,7 +389,7 @@ def create_sale():
             return error("Item quantity must be greater than zero")
 
     try:
-        result = models.create_sale(data, data["items"], created_by=session.get("username", "system"))
+        result = models.create_sale(data, data["items"], created_by="system")
         return success(result, "Sale recorded successfully", 201)
     except ValueError as e:
         return error(str(e))
@@ -435,7 +414,7 @@ def update_sale_status(sale_id):
         return error(f"Sale is already {sale['status']}")
 
     try:
-        models.cancel_or_refund_sale(sale_id, new_status, created_by=session.get("username", "system"))
+        models.cancel_or_refund_sale(sale_id, new_status, created_by="system")
         return success(message=f"Sale marked as {new_status} and stock restored")
     except ValueError as e:
         return error(str(e))
